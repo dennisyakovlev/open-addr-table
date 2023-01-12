@@ -1,0 +1,14 @@
+/home/dennisyakovlev/plan2/build/CMakeFiles/test.dir
+/home/dennisyakovlev/plan2/build/CMakeFiles/edit_cache.dir
+/home/dennisyakovlev/plan2/build/CMakeFiles/rebuild_cache.dir
+/home/dennisyakovlev/plan2/build/tests/CMakeFiles/test.dir
+/home/dennisyakovlev/plan2/build/tests/CMakeFiles/edit_cache.dir
+/home/dennisyakovlev/plan2/build/tests/CMakeFiles/rebuild_cache.dir
+/home/dennisyakovlev/plan2/build/tests/unit/CMakeFiles/UNIT_TESTS.dir
+/home/dennisyakovlev/plan2/build/tests/unit/CMakeFiles/test.dir
+/home/dennisyakovlev/plan2/build/tests/unit/CMakeFiles/edit_cache.dir
+/home/dennisyakovlev/plan2/build/tests/unit/CMakeFiles/rebuild_cache.dir
+/home/dennisyakovlev/plan2/build/tests/locks/CMakeFiles/LOCK_TESTS.dir
+/home/dennisyakovlev/plan2/build/tests/locks/CMakeFiles/test.dir
+/home/dennisyakovlev/plan2/build/tests/locks/CMakeFiles/edit_cache.dir
+/home/dennisyakovlev/plan2/build/tests/locks/CMakeFiles/rebuild_cache.dir

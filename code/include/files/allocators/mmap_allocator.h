@@ -15,13 +15,6 @@
     #define _SC_PAGESIZE PAGE_SIZE
 #endif
 
-/*  NOTE should we just have a uh constructor with file name
-         have do th truncate in here ?
-
-    i think it makes sense since to use truncae we need to use (val * sizeof(T))
-    which we shouldnt have to do
-*/
-
 FILE_NAMESPACE_BEGIN
 
 template<typename T>
@@ -74,6 +67,11 @@ private:
         int fd = _open_or_create();
         if (fd == -1)
         {
+            /*  NOTE: return nullptr ???
+                        thing is you *can* have nullptr in rare cases
+                
+                same for mremap
+            */
             return reinterpret_cast<pointer>(-1);
         }
 
@@ -81,7 +79,7 @@ private:
 
         /*  NOTE: maybe give hint of random usage to not preload file
         */
-        return reinterpret_cast<pointer>
+        return static_cast<pointer>
         (
             ::mmap(nullptr, sz, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0)
         );
@@ -100,13 +98,20 @@ private:
 
         /*  NOTE: maybe give hint of random usage to not preload file
         */
-        return reinterpret_cast<pointer>
+        return static_cast<pointer>
         (
             ::mremap(old_addr, old_sz, sz, MREMAP_MAYMOVE)
         );
     }
 
 public:
+
+    /**
+     * @brief Not usable if default constructed. Is just here
+     *        if need be.
+     * 
+     */
+    mmap_allocator() = default;
 
     mmap_allocator(const std::string& file)
         : M_file(file),

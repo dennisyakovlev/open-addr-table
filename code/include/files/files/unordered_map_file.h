@@ -21,10 +21,43 @@
     account for iterator invalidation
 */
 
-/*  NOTE: this shouldn't be part of this class should be own func
+/*  Discussion on ptrdiff_t vs size_t and why we can
+    neglect it here.
 
-            and maybe named open_address_emplace or sum
+    size_t
+        Is the maximum possible size of a contiguous array.
+    ptrdiff_t
+        Is used on pointer arithmetic within the same
+        contiguous array. It can represent the distance
+        between any two indicies of the same array.
+
+    With most implementations we will have
+        max(size_t) / 2 = max(ptrdiff_t)                  (1)
+    However, this is not gaurenteed.
+    
+    We know the minimum size of an element in the table is
+        sizeof(size_t) + sizeof(Key) + sizeof(Value)
+    which is >= 3. So maximum possible elements is
+        max(size_t) / 3 > max(size_t) / 2 = max(ptrdiff_t)
+    That is, max(ptrdiff_t) will be able to correctly
+    represent any distance in the table when (1) holds.
+
+    What about when (1) isn't true?
+
+        """
+        If an array is so large (greater than PTRDIFF_MAX
+        elements, but less than SIZE_MAX bytes), that the
+        difference between two pointers may not b
+        representable as std::ptrdiff_t, the result of
+        subtracting two such pointers is undefined.
+        """
+        https://en.cppreference.com/w/cpp/types/ptrdiff_t
+
+    In conlusion, throughout the container it is okay
+    to convert "size_type" (size_t) to "difference_type"
+    (ptrdiff_t) and vice versa ONLY for indexing purposes.
 */
+
 
 FILE_NAMESPACE_BEGIN
 
@@ -72,18 +105,21 @@ decrement_wrap(Sz& i, Sz mod)
  * @tparam Cont 
  * @tparam Arg key type
  * @tparam Sz container size_type to use
- * @tparam IsFree(index) true if the index be used written into
- *                       without overriding old data, otherwise false
- * @tparam HashComp(index, hashed) true if the hash value at index and hashed
- *                                 are equqal, false otherwise 
- * @tparam KeyComp(index, k) true if key at index a k compare equal, false
- *                           otherwise
- * @tparam ElemTransfer(into, from) put contents of index from into index into
+ * @tparam IsFree(curr) true if the curr index be used written into
+ *                      without overriding old data, otherwise false
+ * @tparam HashComp(curr,against) comparison of modded hash values of curr
+ *                                index with against index. return
+ *                                0) curr < against
+ *                                1) curr == against
+ *                                2) curr > against
+ * @tparam KeyComp(curr,k) true if key at curr index a k compare equal,
+ *                         false otherwise
+ * @tparam ElemTransfer(into,from) put contents of index from into index into
  * @param cont container to manipulate
  * @param k key to insert
- * @param index begin searching from this index
- * @param buckets numbers of buckets in cont
- *                ie the mod applied to index
+ * @param index begin searching from this index (the original hash)
+ * @param buckets numbers of buckets
+ *                ie the wrap around value for iteration
  * @return std::pair<Sz, bool> 
  */
 template<
@@ -93,17 +129,72 @@ template<
 std::pair<Sz, bool>
 open_address_emplace_index(Cont& cont, const Arg& k, Sz index, Sz buckets)
 {
-    const auto hashed  = index;
+    /*  what if we try to insert an item into an already chained sequence
+
+        say somthing like
+
+        0
+        1
+        2 I
+        3 I
+        4 I
+        5
+
+        where I all have the same hash of 2, and we try to insert at 3 or 4
+
+        what should happen is the thing we try to insert gets put AFTER all of these
+            right now we move everything down for this, which we DONT want to do
+
+        what about and we try to insert 4
+        0
+        1
+        2 2
+        3 2
+        4 2 
+        5 2
+        6 3
+        7 3
+        8
+        9
+
+        insert 4
+        0
+        1
+        2 2
+        3 2
+        4 2   <- start here 
+        5 3
+        6 5   <- insert 4 here
+        7 5
+        8 
+        9
+
+    */
+
+    /*  NOTE: to be able to thourougly test want to have type
+              which hash can be defined say by value but never
+              compares equal unless its itself, ie every object
+              is "unique" but their hashes arent
+    */
+
+    const auto hashed = index;
     if (!IsFree()(cont, index))
     {
-        for (; HashComp()(cont, index, hashed);)
+        auto hash_comp_res = HashComp()(cont, index, hashed);
+        for (; !IsFree()(cont, index) && hash_comp_res < 2;)
         {
-            if (KeyComp()(cont, index, k))
+            /*  For key A,B know (A equals B) => (hash(A) == hash(b))
+
+                Can optimize to not do unecessary key compare when
+                key hashes unequal.
+            */
+            if (hash_comp_res == 1 && KeyComp()(cont, index, k))
             {
                 return { index,false };
             }
 
             increment_wrap(index, buckets);
+            hash_comp_res = HashComp()(cont, index, hashed);
         }
 
         if (!IsFree()(cont, index))
@@ -138,13 +229,6 @@ open_address_erase_index(Cont& cont, Sz index, Sz buckets)
     // then everything is moved over
 }
 
-/**
- * @brief 
- * 
- * @tparam Key 
- * @tparam Value 
- * @tparam Hash 
- */
 template<
     typename Key,
     typename Value,
@@ -153,8 +237,10 @@ class unordered_map_file
 {
 public:
 
-    using _blk = block<std::size_t, std::pair<Key, Value>>;
-    using allocator = mmap_allocator<_blk>;
+    using element = block<std::size_t, std::size_t, std::pair<Key, Value>>;
+    // using element = block<bool, std::size_t, std::pair<Key, Value>>;
+
+    using allocator = mmap_allocator<element>;
 
     using value_type      = std::pair<const Key, Value>;
     using reference       = std::pair<const Key, Value>&;
@@ -163,34 +249,6 @@ public:
     using const_pointer   = const std::pair<const Key, Value>*;
     using size_type       = std::size_t;
 
-    struct convert
-    {
-        pointer operator()(_blk* blk)
-        {
-            return reinterpret_cast<pointer>(std::addressof(get<1>(*blk)));
-        }
-    };
-
-    struct is_free
-    {
-        bool operator()(const _blk* blk) const
-        {
-            return get<0>(*blk) == std::numeric_limits<size_type>::max();
-        }
-    };
-
-    using iterator       = bidirectional_openaddr<
-        std::pair<const Key, Value>,
-        _blk,
-        unordered_map_file<Key, Value, Hash>,
-        convert, is_free>;
-    using const_iterator = bidirectional_openaddr<
-        const std::pair<const Key, Value>,
-        _blk,
-        unordered_map_file<Key, Value, Hash>,
-        convert, is_free>;
-    using difference_type = typename iterator::difference_type;
-
     using key_type            = Key;
     using reference_key       = Key&;
     using const_reference_key = const Key&;
@@ -198,7 +256,102 @@ public:
     using const_pointer_key   = const Key*;
     using mapped_type         = Value;
 
+    struct convert
+    {
+        pointer
+        operator()(element* blk)
+        {
+            return static_cast<pointer>(std::addressof(get<2>(*blk)));
+        }
+    };
+
+    struct is_free
+    {
+        bool
+        operator()(const element* blk) const
+        {
+            return get<0>(*blk);
+        }
+    };
+
+    using testicle = unordered_map_file<Key, Value, Hash>;
+
+    struct Is_Free_Test
+    {
+        bool
+        operator()(const testicle& cont, size_type index) const
+        {
+            return is_free()(cont.M_file + index);
+        }
+    };
+
+    /*  NOTE: we've failed to make a distinction between modded
+              and un modded hash
+
+        currently this uses modded hash's to compare
+    */
+
+    struct Hash_Comp_Test
+    {
+        size_type
+        operator()(const testicle& cont, size_type curr, size_type against) const
+        {
+            // const auto i_hash = cont._hash(index);
+            // return (i_hash >= hash) * (1 + (i_hash > hash));
+    
+            const auto modded_curr    = cont._hash(curr) % cont.M_buckets;
+            const auto modded_against = cont._hash(against) % cont.M_buckets;
+
+            return (modded_curr >= modded_against) * (1 + (modded_curr > modded_against));
+        }
+    };
+
+    template<typename Uh>
+    struct Key_Comp_Test
+    {
+        /*  NOTE: should this be a perfect forward ?
+        */
+        bool
+        operator()(const testicle& cont, size_type curr, Uh k) const
+        {
+            return cont._key(curr) == k;
+        }
+    };
+
+    struct Elem_Move_Test
+    {
+        void
+        operator()(testicle& cont, size_type to, size_type from)
+        {
+            cont._block(to) = cont._block(from); 
+            cont._is_free(from) = true;
+        }
+    };
+
+    using iterator       = bidirectional_openaddr<
+        std::pair<const Key, Value>,
+        element,
+        unordered_map_file<Key, Value, Hash>,
+        convert, is_free>;
+    using const_iterator = bidirectional_openaddr<
+        const std::pair<const Key, Value>,
+        element,
+        unordered_map_file<Key, Value, Hash>,
+        convert, is_free>;
+    using difference_type = typename iterator::difference_type;
+
 private:
+
+    /**
+     * @brief For use in the struct functors
+     * 
+     * @param ptr 
+     */
+    unordered_map_file(element* ptr, size_type buckets)
+        : M_buckets(buckets),
+          M_file(ptr)  
+    {
+    }
 
     /**
      * @brief Not very good for many reasons, but
@@ -235,40 +388,52 @@ private:
         return tmp_s;
     }
 
-    _blk&
+    element&
     _block(size_type index)
     {
-        return M_file[index];
+        return *(M_file + index);
     }
 
-    const _blk&
+    const element&
     _block(size_type index) const
     {
-        return M_file[index];
+        return *(M_file + index);
     }
 
     size_type&
-    _hash(size_type index)
+    _is_free(size_type index)
     {
         return get<0>(_block(index));
     }
 
     size_type
-    _hash(size_type index) const
+    _is_free(size_type index) const
     {
         return get<0>(_block(index));
+    }
+
+    size_type&
+    _hash(size_type index)
+    {
+        return get<1>(_block(index));
+    }
+
+    size_type
+    _hash(size_type index) const
+    {
+        return get<1>(_block(index));
     }
 
     reference_key
     _key(size_type index)
     {
-        return get<1>(_block(index)).first;
+        return get<2>(_block(index)).first;
     }
 
     const_reference_key
     _key(size_type index) const
     {
-        return get<1>(_block(index)).first;
+        return get<2>(_block(index)).first;
     }
 
     void
@@ -278,7 +443,7 @@ private:
 
         for (size_type i = 0; i != M_buckets; ++i)
         {
-            _hash(i) = std::numeric_limits<size_type>::max();
+            _is_free(i) = true;
         }
     }
 
@@ -314,17 +479,6 @@ public:
           M_alloc(M_name)
     {
         _init();
-    }
-
-    reference operator[](const Key& k)
-    {
-        /*  NOTE: implement
-        */
-    }
-
-    const_reference operator[](const Key& k) const
-    {
-
     }
 
     size_type
@@ -376,7 +530,7 @@ public:
 
         for (; M_buckets != buckets; ++M_buckets)
         {
-            _hash(M_buckets) = std::numeric_limits<size_type>::max();
+            _is_free(M_buckets) = true;
         }
     }
 
@@ -480,9 +634,7 @@ public:
             NOTE: reszing to something which would give similar mod values is a bad idea
 
              0 1 2 3 4 5 6 7 8,9
-            [9,1,2,3,4,n,n,n,n,n]
-
-            
+            [4,1,2,3,5,n,n,n,n,n]
 
             0 (4,14,3)
             1 (1,11,0)
@@ -492,14 +644,29 @@ public:
 
             0 
             1 (1,11)
-            2 (2,22)
-            3 (2,2)
+            2 (2,2)
+            3 (2,22)
             4 (3,13)
-            5 
+            5 (4,14)
             6
             7
             8
-            9 (9,9)
+            9
+
+             0 1 2 3 4 5 6 7 8 9
+            [4,1,2,3,5,n,n,n,n,n]
+            [n,1,2,3,0,4,n,n,n,n]
+
+            now issue is when i insert (3,13), i move back (4,14), i must update
+            the element in vector which has element.first = 4, it should be 5
+                - use the pointer at the element we're moving will tell us
+                  where to look
+                - but we somehow need to know which element to access based of ptr
+                - say we can have at end of vector an element which contains the
+                  starting pointer and can subtract that to know which element
+                  needs to be changed
+
+
 
             now two issues
                 - self loops ie stack would look like a,b,c,d,a or a,b,c,d,b
@@ -518,94 +685,168 @@ public:
             - iterate through the array copying elements in the container to their associated pos
 
             but if we overwrite element, need to "follow" the overwritten elements
+
+
+
+
+
+            0 (0,0)
+            1 (1,11)
+            2 (2,12)  <- here stack should be 2,4,1 ie 4 copied to 1, 2 copied to 4
+            3
+            4 (4,9)
+
+            0 (0,0)
+            1 (1,9)
+            2
+            3 (3,11)
+            4 (4,12)
+            5
+            6
+            7
+
         */
 
-        /*  what if we use vector of _blk*, ie our data and just
-            give special funcs ?
+        /*  v[i].first  - index i referencing a location in the current
+                          mmap will be placed into the v[i].first location,
+                          which references a location in the new mmap
+            v[i].second - index i referencing a location in the new
+                          mmap will be taken by the v[i].second pointer
+                          which points to a valid element of the current
+                          mmap
+        */
+        using local_cont = std::vector<std::pair<size_type, element*>>;
+
+        /*  Can use this containers size type since 
+                size_type -> ptrdiff_t
+            is okay and
+                ptrdiff_t -> Cont::size_type
+            is also okay. So
+                size_type -> Cont::size_type
+            if okay
         */
 
-        using Cont    = std::vector<std::pair<size_type, _blk*>>;
-        using Cont_sz = typename Cont::size_type;
+        struct local_is_free
+        {
+            bool
+            operator()(const local_cont& cont, size_type curr) const
+            {
+                return cont[curr].second == nullptr;
+            }
+        };
 
-        /*  NOTE: should these be Cont_sz or size_type
+        struct local_hash_comp
+        {
+            size_type
+            operator()(const local_cont& cont, size_type curr, size_type against) const
+            {
+                if (!cont[curr].second)
+                {
+                    return 2;
+                }
+
+                return Hash_Comp_Test()(
+                    {cont.back().second, cont.back().first},
+                    curr, against
+                );
+            }
+        };
+
+        struct local_key_comp
+        {
+            size_type
+            operator()(const local_cont& cont, size_type curr, const Key& k) const
+            {
+                // Assume KeyComp does not compare against a nullptr.
+                return Key_Comp_Test<Key>()(
+                    {cont.back().second, cont.back().first},
+                    curr, k
+                );
+            }
+        };
+
+        struct local_elem_transfer
+        {
+            void
+            operator()(local_cont& cont, size_type to, size_type from)
+            {
+                const auto start = cont.back().second;
+                cont[cont[from].second - start].first = to;
+
+                std::swap(cont[to], cont[from]);
+            }
+        };
+
+        constexpr auto invalid_index = std::numeric_limits<size_type>::max();
+        local_cont vec(
+            std::max(buckets, M_buckets) + 1,
+            {invalid_index, nullptr}
+        );
+        /*  Keep reference to some data to be used in functors.
         */
+        vec.back() = { buckets,M_file };
 
-        struct IsFree
-        {
-            bool operator()(const Cont& c, Cont_sz i) const
-            {
-                return c[i].second == nullptr;
-            }
-        };
-
-        struct HashComp
-        {
-            Cont_sz operator()(const Cont& c, Cont_sz i, Cont_sz hash) const
-            {
-                return get<0>(*c[i].second) == hash;
-            }
-        };
-
-        struct KeyComp
-        {
-            Cont_sz operator()(const Cont& c, Cont_sz i, const Key& k) const
-            {
-                return get<1>(*c[i].second).first == k;
-            }
-        };
-
-        struct ElemTransfer
-        {
-            void operator()(Cont& c, Cont_sz to, Cont_sz from)
-            {
-                return std::swap(c[to], c[from]);
-            }
-        };
-
-        Cont vec(buckets, {0, nullptr});
+        /*  Insert pointers to all taken elements from the
+            current containers into temporary container.
+        */
         for (auto iter = cbegin(); iter != cend(); ++iter)
         {
-            const auto data  = iter_data(iter);
-            const auto index = data - M_file;
-            vec[index] = 
-            {
-                open_address_emplace_index<
-                    Cont,
-                    Key, Cont_sz,
-                    IsFree, HashComp, KeyComp, ElemTransfer
-                >(vec, _key(index), index, buckets).first,
-                data
-            };
+            const auto data       = iter_data(iter);
+            const size_type index = data - M_file;
+
+            auto now_taken = open_address_emplace_index<
+                local_cont,
+                Key, size_type,
+                local_is_free, local_hash_comp, local_key_comp, local_elem_transfer
+            >(vec, _key(index), _hash(index) % buckets, buckets).first;
+
+            vec[index].first      = now_taken;
+            vec[now_taken].second = M_file + index;
         }
 
-        for (Cont_sz i = 0; i != vec.size(); ++i)
+        if (buckets > M_buckets)
         {
-            if (vec[i].second)
-            {
-                std::vector<Cont_sz> stack = { i };
-                auto j = i;
-                if (vec[j].first != j)
-                {
-                    for (; vec[j].second;)
-                    {
-                        stack.push_back(j);
-                        vec[j].second = nullptr;
-                        j = vec[j].first;
-                    }
-                }
-                vec[j].second = nullptr;
+            reserve(buckets);
+        }
 
-                // NOTE: can use ElemTransfer defined in emplace for this
-                while (!stack.empty())
+        std::vector<size_type> stack;
+        stack.reserve(4);
+        for (size_type index = 0; index != M_buckets; ++index)
+        {
+            auto going_to = vec[index].first;
+            /*  If an index is moved to itself can do nothing.
+            */
+            if (going_to != invalid_index && going_to != index)
+            {
+                auto prev = index;
+                stack.push_back(prev);
+
+                while (going_to != invalid_index)
                 {
-                    const auto temp = stack.back();
-                    _block(j) = _block(temp);
-                    j = temp;
+                    /*  Need to invalidate to account for
+                        self loops. 
+                    */
+                    vec[prev].first = invalid_index;
+
+                    stack.push_back(going_to);
+                    prev = going_to;
+                    going_to = vec[going_to].first;
+                }
+
+                while (stack.size() > 1 )
+                {
+                    auto end = stack.rbegin();
+                    Elem_Move_Test()(*this, *end, *(end + 1));
                     stack.pop_back();
                 }
+                stack.pop_back();
             }
         }
 
+        if (buckets < M_buckets)
+        {
+            reserve(buckets);
+        }
     }
 
     iterator
@@ -659,43 +900,6 @@ public:
         return emplace(std::forward<decltype(v.first)>(v.first), std::forward<decltype(v.second)>(v.second));
     }
 
-        using testicle = unordered_map_file<Key, Value, Hash>;
-
-        struct Is_Free_Test
-        {
-            size_type operator()(const testicle& cont, size_type index) const
-            {
-                return is_free()(cont.M_file + index);
-            }
-        };
-
-        struct Hash_Comp_Test
-        {
-            size_type operator()(const testicle& cont, size_type index, size_type hash) const
-            {
-                return cont._hash(index) == hash;
-            }
-        };
-
-        template<typename Uh>
-        struct Key_Comp_Test
-        {
-            /*  NOTE: should this be a perfect forward ?
-            */
-            size_type operator()(const testicle& cont, size_type index, Uh k) const
-            {
-                return cont._key(index) == k;
-            }
-        };
-
-        struct Elem_Move_Test
-        {
-            void operator()(testicle& cont, size_type to, size_type from)
-            {
-                cont._block(to) = cont._block(from); 
-            }
-        };
-
     template<typename Arg, typename... Args>
     std::pair<iterator, bool>
     emplace(Arg&& arg, Args&&... args)
@@ -703,13 +907,13 @@ public:
         // NOTE: must rehash and resize
 
         Arg k(std::forward<Arg>(arg));
-        const auto hashed = Hash()(k) % M_buckets;
+        const auto hashed = Hash()(k);
 
         auto res = open_address_emplace_index<
             decltype(*this),
             Arg, size_type,
             Is_Free_Test, Hash_Comp_Test, Key_Comp_Test<Arg>, Elem_Move_Test>
-        (*this, k, hashed, M_buckets);
+        (*this, k, hashed % M_buckets, M_buckets);
 
         if (!res.second)
         {
@@ -720,6 +924,7 @@ public:
         (
             M_alloc,
             std::addressof(_block(res.first)),
+            false,
             hashed,
             std::make_pair(std::move(k), std::forward<Args>(args)...)
         );
@@ -765,7 +970,7 @@ public:
         auto index = iter_data(iter) - iter_data(cbegin());
         if (!is_free()(M_file + index))
         {
-            _hash(index) = std::numeric_limits<size_type>::max();
+            _is_free(index) = true;
             --M_elem;
         }
 
@@ -776,7 +981,6 @@ public:
 
         increment_wrap(index, M_buckets);
         return iterator(M_file + index);
-        // return iterator(M_file + ((index + 1) % M_buckets));
     }
 
     size_type
@@ -791,7 +995,7 @@ public:
         }
         --M_elem;
 
-        _hash(index) = std::numeric_limits<size_type>::max();
+        _is_free(index) = true;
 
         return 1;
     }
@@ -815,7 +1019,7 @@ public:
         {
             if (is_free()(M_file + index))
             {
-                _hash(index) = std::numeric_limits<size_type>::max();
+                _is_free(index) = true;
             }
         }
 
@@ -827,7 +1031,7 @@ public:
     const std::string M_name;
     size_type   M_buckets, M_elem;
     allocator   M_alloc;
-    _blk*       M_file;
+    element*    M_file;
 
 };
 

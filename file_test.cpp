@@ -13,6 +13,7 @@
 
 #include <unit_tests/CustomString.h>
 #include <files/Files.h>
+#include <files/Allocators.h>
 
 using namespace std;
 using namespace MmapFiles;
@@ -37,6 +38,12 @@ struct SpecialInt
     {
         cout << "move construct" << endl;
         data = 2;
+    }
+
+    ~SpecialInt()
+    {
+        cout << "destructor" << endl;
+        data = 0;
     }
 
     SpecialInt&
@@ -81,15 +88,28 @@ struct Show
 
 int main(int argc, char const *argv[])
 {
-    unordered_map_file<std::size_t, std::size_t> f(5, "deez");
-    f.insert({11, 100});
-    f.insert({2, 100});
-    f.insert({13, 100});
-    f.insert({14, 100});
-    f.insert({22, 100});
+    // unordered_map_file<std::size_t, std::size_t> f(5, "deez");
+    // f.insert({11, 100});
+    // f.insert({2, 100});
+    // f.insert({13, 100});
+    // f.insert({14, 100});
+    // f.insert({22, 100});
+    // f.rehash(10);
 
-    f.rehash(10);
+    // f.insert({0,100});
+    // f.insert({11,100});
+    // f.insert({12,100});
+    // f.insert({9,100});
+    // f.rehash(8);
 
+    unordered_map_file<std::size_t, std::size_t> f(8, "deez");
+    f.insert({80,100});
+    f.insert({37,100});
+    f.insert({21,100});
+    f.rehash(15);
+
+    // NOTE: clear forces deconstruct (does it, or liek is jus vector
+    
 
     // p (char*)&res.first->second - (char*)&res.first->first
     // unordered_map_file<MyString<156>, long> f(8, "deez");

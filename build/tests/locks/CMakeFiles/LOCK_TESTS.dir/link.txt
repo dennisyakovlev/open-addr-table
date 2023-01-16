@@ -1,1 +1,0 @@
-/usr/bin/c++  -ggdb3 -O0 -std=c++2a -Wall CMakeFiles/LOCK_TESTS.dir/Correctness.cpp.o CMakeFiles/LOCK_TESTS.dir/QueueFairness.cpp.o CMakeFiles/LOCK_TESTS.dir/main.cpp.o -o LOCK_TESTS  -lpthread 

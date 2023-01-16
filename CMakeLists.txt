@@ -6,7 +6,7 @@ set(include ${CMAKE_CURRENT_SOURCE_DIR}/code/include CACHE FILEPATH "Include dir
 set(unit_tests_exe UNIT_TESTS CACHE STRING "unit testing exectuable")
 set(lock_tests_exe LOCK_TESTS CACHE STRING "lock testing exectuable")
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ggdb3 -O0 -std=c++2a -Wall")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ggdb3 -O0 -std=c++11 -Wall")
 
 add_subdirectory(tests)
 

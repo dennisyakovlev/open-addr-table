@@ -22,11 +22,17 @@
 #include <tuple>
 #include <vector>
 
-#include "Defs.h"
+#include <gtest/gtest.h>
+
+#include <lock_tests/Defs.h>
+#include <files/locks.h>
 
 template<typename T>
 struct Arg
 {
+
+    using Lock = T;
+
     T                 lock;
     std::size_t       total;
     std::atomic<bool> begin;
@@ -50,12 +56,11 @@ void* thread_increment(void* arg)
 }
 
 template<typename T>
-class CorrectnessTest
+class CorrectnessTest : public testing::Test
 {
-public:
+protected:
 
-    void
-    Init()
+    CorrectnessTest()
     {
         threads.resize(TESTS_NUM_THREADS);
         nums.resize(TESTS_NUM_THREADS);
@@ -90,43 +95,26 @@ public:
         return arg;
     }
 
-private:
-
     std::vector<pthread_t>   threads;
     std::vector<std::size_t> nums;
     Arg<T>                   arg;
 
 };
 
-template<typename Tuple, std::size_t I>
-struct TestLocks
+using MyTypes = ::testing::Types<
+    MmapFiles::spin_lock,
+    MmapFiles::mutex_lock,
+    MmapFiles::queue_lock
+>;
+TYPED_TEST_CASE(CorrectnessTest, MyTypes);
+
+TYPED_TEST(CorrectnessTest, Exclusion)
 {
-    static int TestLock()
-    {
-        using Lock = typename std::tuple_element<I - 1, Tuple>::type;
-        CorrectnessTest<Lock> test;
-        test.Init();
-        test.GetArg().begin.store(true);
-        test.Wait();
+    this->arg.begin.store(true);
+    this->Wait();
 
-        PRINT_RUN_TEST(DEMANGLE_TYPEID_NAME(Lock));
-        int res = test.GetArg().total == (TESTS_NUM_THREADS * TESTS_NUM_ITERATS) ? 0 : 1;
-        PRINT_FAIL_OR_SUCCESS(res == 0, DEMANGLE_TYPEID_NAME(Lock));
+    ASSERT_EQ(this->arg.total, TESTS_NUM_THREADS * TESTS_NUM_ITERATS);
 
-        return TestLocks<Tuple, I - 1>::TestLock() + res;
-    }
-};
-
-template<typename Tuple>
-struct TestLocks<Tuple, 0>
-{
-    static int TestLock()
-    {
-        return 0;
-    }
-};
-
-int
-correctness_tests();
+}
 
 #endif

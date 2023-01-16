@@ -228,7 +228,7 @@ TYPED_TEST(UnorderedMapReqTest, Range)
 {
     // can't access key_type in the defined class
     // because of how gtest works
-    using key_type = std::remove_const<decltype(this->cont.begin()->first)>::type;
+    using key_type = typename std::remove_const<decltype(this->cont.begin()->first)>::type;
     
     /*  NOTE: e and f get replaced
     */

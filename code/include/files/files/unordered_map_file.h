@@ -237,7 +237,12 @@ class unordered_map_file
 {
 public:
 
-    using element = block<std::size_t, std::size_t, std::pair<Key, Value>>;
+    /*  NOTE: we can use "const Key" because only "block" always construct
+              and never copies.
+
+        potential performance issue
+    */
+    using element = block<std::size_t, std::size_t, std::pair<const Key, Value>>;
     // using element = block<bool, std::size_t, std::pair<Key, Value>>;
 
     using allocator = mmap_allocator<element>;
@@ -296,9 +301,6 @@ public:
         size_type
         operator()(const testicle& cont, size_type curr, size_type against) const
         {
-            // const auto i_hash = cont._hash(index);
-            // return (i_hash >= hash) * (1 + (i_hash > hash));
-    
             const auto modded_curr    = cont._hash(curr) % cont.M_buckets;
             const auto modded_against = cont._hash(against) % cont.M_buckets;
 

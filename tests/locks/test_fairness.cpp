@@ -5,8 +5,9 @@
 #include <stdio.h>
 #include <vector>
 
-#include "Defs.h"
-#include "QueueFairness.h"
+#include <gtest/gtest.h>
+
+#include <lock_tests/Defs.h>
 #include <files/locks.h>
 
 std::size_t           total;
@@ -73,45 +74,25 @@ func_nice(void* _)
         Try switching "lock" type to a different lock, say MutexLock and
         observe difference.
     */
-    double average_lag = static_cast<double>(lag) / times;
-
-    PRINT_RUN_TEST("Fairness");
-
-    /*  If the average lag is grater than 0.01 then from 100 requests,
-        on average, the lock was obtained later than 1 increment of
-        "total".
-    */
-    int* ret = new int(0);
-    if (average_lag > 0.01)
-    {
-        *ret = 1;
-    }
-    
-    PRINT_FAIL_OR_SUCCESS(*ret == 0, "Fairness");
-    if (*ret)
-    {
-        std::cout << "Expected average_lag < " << 0.01 << " and got " << average_lag << "\n";
-    }
-
-    return ret;
+    double* average_lag = new double(static_cast<double>(lag) / times);
+    return average_lag;
 }
 
-int
-queue_fairness_test()
+TEST(QueueFairness, Test)
 {
-    PRINT_BEGIN_TESTS("QueueLockFairness");
-
     std::vector<pthread_t> threads(TESTS_NUM_THREADS);
     for (int i = 0; i != TESTS_NUM_THREADS - 1; ++i)
     {
         if (pthread_create(&threads[i], NULL, func_starve, NULL))
         {
             perror("create");
+            ASSERT_TRUE(false);
         }
     }
     if (pthread_create(&threads[TESTS_NUM_THREADS - 1], NULL, func_nice, NULL))
     {
         perror("create");
+        ASSERT_TRUE(false);
     }
 
     thread_begin.store(false);
@@ -121,15 +102,19 @@ queue_fairness_test()
         if (pthread_join(threads[i], NULL))
         {
             perror("join");
+            ASSERT_TRUE(false);
         }
     }
-    int* res;
-    if (pthread_join(threads.back(), reinterpret_cast<void**>(&res)))
+    double* average_lag;
+    if (pthread_join(threads.back(), reinterpret_cast<void**>(&average_lag)))
     {
         perror("join");
+        ASSERT_TRUE(false);
     }
 
-    PRINT_END_TESTS("QueueLockFairness");
-
-    return *res;
+    /*  If the average lag is grater than 0.01 then from 100 requests,
+        on average, the lock was obtained later than 1 increment of
+        "total". Which isn't exactly "fair".
+    */
+    ASSERT_LT(*average_lag, 0.01);
 }

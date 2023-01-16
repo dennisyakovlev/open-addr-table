@@ -109,6 +109,13 @@ int main(int argc, char const *argv[])
     f.rehash(15);
 
     // NOTE: clear forces deconstruct (does it, or liek is jus vector
+
+    /*  === Here ===
+
+        switch over locks in test to use googletest
+
+        write large tests for the unordered map
+    */
     
 
     // p (char*)&res.first->second - (char*)&res.first->first

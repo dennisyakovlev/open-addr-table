@@ -8,8 +8,8 @@ fi
 cd -
 
 # declare -a files=("unit/UNIT_TESTS" "locks/LOCK_TESTS")
-declare -a files=("unit/UNIT_TESTS")
-# declare -a files=("locks/LOCK_TESTS")
+# declare -a files=("unit/UNIT_TESTS")
+declare -a files=("locks/LOCK_TESTS")
 
 for file in "${files[@]}"; do
     build/tests/"$file"

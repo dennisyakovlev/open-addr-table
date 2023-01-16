@@ -1,14 +1,7 @@
-#include <iostream>
-#include <string>
+#include <gtest/gtest.h>
 
-#include "Correctness.h"
-#include "QueueFairness.h"
-
-int main(int argc, char const *argv[])
+int main(int argc, char* argv[])
 {
-    auto res = correctness_tests();
-    std::cout  << "\n";
-    res += queue_fairness_test();
-
-    return res;
+	::testing::InitGoogleTest(&argc, argv);
+	return RUN_ALL_TESTS();
 }

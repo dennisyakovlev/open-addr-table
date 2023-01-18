@@ -7,9 +7,8 @@ if [ $? -ne 0 ]; then
 fi
 cd -
 
-# declare -a files=("unit/UNIT_TESTS" "locks/LOCK_TESTS")
-# declare -a files=("unit/UNIT_TESTS")
-declare -a files=("locks/LOCK_TESTS")
+#declare -a files=("unit/UNIT_TESTS" "locks/LOCK_TESTS thourough/THOUROUGH_TESTS")
+declare -a files=("unit/UNIT_TESTS")
 
 for file in "${files[@]}"; do
     build/tests/"$file"

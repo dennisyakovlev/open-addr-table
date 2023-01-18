@@ -98,6 +98,9 @@ decrement_wrap(Sz& i, Sz mod)
 /**
  * @brief Open addressing with linear probing algorithm.
  * 
+ *        When collisions occur, the modded hashes of the
+ *        keys will be in non-decreasing order.
+ * 
  * @note Last four template params are types which
  *       must have function operators that take the
  *       cont as the first parameter
@@ -120,7 +123,8 @@ decrement_wrap(Sz& i, Sz mod)
  * @param index begin searching from this index (the original hash)
  * @param buckets numbers of buckets
  *                ie the wrap around value for iteration
- * @return std::pair<Sz, bool> 
+ * @return std::pair<Sz,bool> Sz   - index of insertion
+ *                            bool - true if inserted, false otherwise
  */
 template<
     typename Cont,
@@ -175,12 +179,26 @@ open_address_emplace_index(Cont& cont, const Arg& k, Sz index, Sz buckets)
               which hash can be defined say by value but never
               compares equal unless its itself, ie every object
               is "unique" but their hashes arent
+
+              ie mofified pair of first is hash and
+              second is val with custon operators
     */
 
-    const auto hashed = index;
     if (!IsFree()(cont, index))
     {
-        auto hash_comp_res = HashComp()(cont, index, hashed);
+        /*  NOTE: need to account for if there a table full of the
+                  same index
+
+            or do i? do we ALWAYS assume there is ATLEAST one space available ?
+                i think yes
+                since max_load_factor is 1 at most, we'd just rehash if there
+                was no space
+
+            conslusion, do not need to account for full table
+        */
+
+        const auto start_index = index;
+        auto hash_comp_res = HashComp()(cont, index, start_index);
         for (; !IsFree()(cont, index) && hash_comp_res < 2;)
         {
             /*  For key A,B know (A equals B) => (hash(A) == hash(b))
@@ -194,7 +212,7 @@ open_address_emplace_index(Cont& cont, const Arg& k, Sz index, Sz buckets)
             }
 
             increment_wrap(index, buckets);
-            hash_comp_res = HashComp()(cont, index, hashed);
+            hash_comp_res = HashComp()(cont, index, start_index);
         }
 
         if (!IsFree()(cont, index))
@@ -214,19 +232,147 @@ open_address_emplace_index(Cont& cont, const Arg& k, Sz index, Sz buckets)
         }
     }
 
+    /*  what about 
+
+        insert with modded hash 1
+        0 4
+        1 5
+        2
+        3
+        4 4
+        5 4
+
+        i think we need specific unit tests with the pair hash type
+    */
+
     return  { index,true };
 }
 
+/*  what if we have table of all same hashes, will iterate infinetly
+*/
+
+/**
+ * @brief See \ref open_address_emplace_index
+
+ * @tparam Deconstruct(curr) destruct the element at index curr
+ * @return Sz index of removed element
+ */
 template<
     typename Cont,
-    typename Sz,
-    typename IsFree, typename ElemTransfer
->
-std::pair<Sz, bool>
-open_address_erase_index(Cont& cont, Sz index, Sz buckets)
+    typename Arg, typename Sz,
+    typename IsFree, typename HashComp, typename KeyComp, typename ElemTransfer,
+    typename Deconstruct>
+Sz
+open_address_erase_index(Cont& cont, const Arg& k, Sz index, Sz buckets)
 {
-    // this function would be called after the elem is deleted
-    // then everything is moved over
+    /*  deconstruct in here or in funcs ?
+            in funcs
+
+        original func deallocs the pair but keeps hash
+            not necisarily, so long as hashcomp does what we need
+
+        if original func does NOT dealloc we'd return pair<sz,bool>
+            we never need sz, we cannot return next iter, would be O(n) time
+
+        we might still want sz, say we want sz where sz index which
+        would be removed and would be buckets if nothing to remove
+            - but we want to dealloc, how would we do this if we returned index
+            - say like we have have a chain, would move the chain back, but
+              then would just replace the current elem, and not dealloc it
+
+            conclusion is we MUST dealloc the elem before manipulating
+            the rest of the container
+            question becomes in the original func or here
+
+        dealloc in here
+            - need dealloc()(cont, index)
+            - caller original loses control
+        dealloc in original func
+            - forced to check whether to dealloc or not
+        i think the point in dealloc in func is the decider, this puts logic of
+        erase into the original caller, which i dont want
+
+        for insert above is okay because conditional logic is not added,
+        theyre simply given an index to shove elem into, and do as told
+
+        dealloc within the func
+        return sz
+            sz is buckets if nothing deleted
+            sz is the index of deleted
+        
+
+
+    */
+
+    if (!IsFree()(cont, index))
+    {
+        const auto start_index = index;
+        auto hash_comp_res = HashComp()(cont, index, start_index);
+        /*  
+        */
+        for (Sz i = 0; !IsFree()(cont, index) && hash_comp_res < 2 && i != buckets; ++i)
+        {
+            if (hash_comp_res == 1 && KeyComp()(cont, index, k))
+            {
+                Deconstruct()(cont, index);
+                const auto removed = index;
+                
+                /*  need to keep looping until
+                        - found free
+                        - the hash of an index
+
+                    say we look to remove key with modded hash of 2
+                    0
+                    1 1
+                    2 1   <- start looking here
+                    3 1
+                    4 2
+                    5 3
+                    6 6   <- we stop here
+                    7
+                    8
+
+                    remove 5a
+                    0 4
+                    1 5a
+                    2 5
+                    3
+                    4 4
+                    5 4   <- start looking here
+
+                    we will eaither get empty OR a number whose modded hash is
+                    equal to the index
+
+                    we need to know when a hash is diff and compare AGAINST a specific num
+                        need another template param
+                        no
+                            hash comp should just be replaced by a (index,num) where we compares
+                            modded hash at index against num
+
+                    IsFree(curr), KeyComp(curr,k), Deconstruct(curr) 
+                */
+
+                // while (!IsFree()(cont, index) && )
+                // {
+
+                // }
+
+                // here, and only here is there a potential shift
+
+                // lets shift as needed and return instead
+
+                return removed;
+            }
+
+            increment_wrap(index, buckets);
+            hash_comp_res = HashComp()(cont, index, start_index);
+        }
+
+        // if we're here then any of the above conditions is true, ie
+        // nothing needs to be done, can just continue and return normally
+    }
+
+    return buckets;
 }
 
 template<
@@ -289,12 +435,6 @@ public:
             return is_free()(cont.M_file + index);
         }
     };
-
-    /*  NOTE: we've failed to make a distinction between modded
-              and un modded hash
-
-        currently this uses modded hash's to compare
-    */
 
     struct Hash_Comp_Test
     {
@@ -453,7 +593,7 @@ public:
 
     unordered_map_file()
         : M_name(_gen_random(16)),
-          M_buckets(0), M_elem(0),
+          M_buckets(1), M_elem(0),
           M_alloc(M_name)
     {
         _init();
@@ -461,12 +601,15 @@ public:
 
     unordered_map_file(std::string name)
         : M_name(std::move(name)),
-          M_buckets(0), M_elem(0),
+          M_buckets(1), M_elem(0),
           M_alloc(M_name)
     {
         _init();
     }
 
+    /*  NOTE: buckets must be > 0 other mmap will
+              freak out
+    */
     unordered_map_file(size_type buckets)
         : M_name(_gen_random(16)),
           M_buckets(buckets), M_elem(0),

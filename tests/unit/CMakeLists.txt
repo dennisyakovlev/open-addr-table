@@ -4,14 +4,18 @@ set(sources
     # test_lock_req.cpp
     # test_recursive_lock.cpp
     # test_umaplru.cpp
-    test_unordered_map_req.cpp
+    # test_unordered_map_req.cpp
+    test_unordered_map_extra.cpp
     main.cpp
 )
 
 set(unit_sources
+    unit_tests/Vars.h
     unit_tests/CustomString.h
     unit_tests/Funcs.h
     unit_tests/Funcs.cpp
+    unit_tests/SpecialHash.h
+    unit_tests/SpecialHash.cpp
 )
 
 add_executable(${unit_tests_exe} ${sources} ${unit_sources})

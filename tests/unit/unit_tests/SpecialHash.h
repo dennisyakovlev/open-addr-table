@@ -10,6 +10,8 @@ public:
 
     using std::pair<std::size_t, std::size_t>::pair;
 
+    ~SpecialHash();
+
     static std::size_t vals;
 };
 
@@ -27,7 +29,6 @@ gen_unique(std::size_t hash);
  * @brief Reset the generation of SpecialHash's so that
  *        a new (but not distinct from old) set of values
  *        is used. 
- * 
  */
 void
 reset_gen();

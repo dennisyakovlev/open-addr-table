@@ -173,7 +173,7 @@ public:
             sz_old = _page_aligned(n);
         }
 
-        ::msync(addr, n * sizeof(value_type), MS_SYNC);
+        ::msync(addr, sz_old * sizeof(value_type), MS_SYNC);
         ::munmap(addr, n);
     }
 

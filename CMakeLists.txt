@@ -14,7 +14,7 @@ set(lock_tests_exe LOCK_TESTS CACHE STRING "lock testing exectuable")
 set(thourough_tests_exe THOUROUGH_TESTS CACHE STRING "unordered map requirements thourough testing exectuable")
 
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ggdb3 -O0 -std=c++11 -Wall")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ggdb3 -O0 -std=c++2a -Wall")
 
 add_subdirectory(tests)
 

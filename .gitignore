@@ -1,1 +1,4 @@
 build
+.gdbinit
+unit_test_file
+*.out

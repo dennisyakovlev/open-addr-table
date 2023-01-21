@@ -7,12 +7,12 @@ if [ $? -ne 0 ]; then
 fi
 cd -
 
-#declare -a files=("unit/UNIT_TESTS" "locks/LOCK_TESTS thourough/THOUROUGH_TESTS")
-declare -a files=("unit/UNIT_TESTS")
+# declare -a files=("unit/UNIT_TESTS" "locks/LOCK_TESTS thourough/THOUROUGH_TESTS")
+# declare -a files=("unit/UNIT_TESTS")
 
-for file in "${files[@]}"; do
-    build/tests/"$file"
-    printf "\n"
-done
+# for file in "${files[@]}"; do
+#     build/tests/"$file"
+#     printf "\n"
+# done
 
-ls | egrep "^.{16}$" | xargs -I{} rm {}
+# ls | egrep "^.{16}$" | xargs -I{} rm {}

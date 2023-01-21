@@ -88,6 +88,14 @@ struct Show
 
 int main(int argc, char const *argv[])
 {
+
+    unordered_map_file<std::size_t, std::size_t> f("deez");
+    f.reserve(5);
+
+    f.insert({1,100});
+    f.erase(1);
+
+
     // unordered_map_file<std::size_t, std::size_t> f(5, "deez");
     // f.insert({11, 100});
     // f.insert({2, 100});
@@ -102,11 +110,11 @@ int main(int argc, char const *argv[])
     // f.insert({9,100});
     // f.rehash(8);
 
-    unordered_map_file<std::size_t, std::size_t> f(8, "deez");
-    f.insert({80,100});
-    f.insert({37,100});
-    f.insert({21,100});
-    f.rehash(15);
+    // unordered_map_file<std::size_t, std::size_t> f(8, "deez");
+    // f.insert({80,100});
+    // f.insert({37,100});
+    // f.insert({21,100});
+    // f.rehash(15);
 
     // NOTE: clear forces deconstruct (does it, or liek is jus vector
 

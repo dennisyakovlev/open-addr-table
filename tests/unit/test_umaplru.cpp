@@ -12,12 +12,12 @@
 using MmapFiles::unordered_map_lru;
 using std::string;
 
-template<typename Key>
+template<typename Cont>
 class UnorderedMapLruTest : public ::testing::Test
 {
 protected:
 
-    unordered_map_lru<Key, bool> map;
+    Cont map;
 
     UnorderedMapLruTest()
         : map(4)
@@ -34,9 +34,10 @@ protected:
  */
 using MyTypes = testing::Types
 <
-    string,
-    MyString<128>,
-    CollisonString<64>
+    unordered_map_lru<string, bool>,
+    unordered_map_lru<MyString<128>, int>,
+    unordered_map_lru<MyString<67>, short, collison<67, 0>>,
+    unordered_map_lru<MyString<93>, unsigned long, collison<93, 7>>
 >;
 TYPED_TEST_CASE(UnorderedMapLruTest, MyTypes);
 

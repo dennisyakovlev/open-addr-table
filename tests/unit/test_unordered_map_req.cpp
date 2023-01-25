@@ -64,19 +64,15 @@ public:
 */
 using MyTypes = testing::Types
 <
-    // MmapFiles::unordered_map_lru<std::string, int>,
-    // MmapFiles::unordered_map_lru<MyString<88>, long>,
-    // MmapFiles::unordered_map_lru<MyString<257>, long, collison<257, 28>>,
-    // MmapFiles::unordered_map_file<MyString<128>, int>
-    // MmapFiles::unordered_map_file<MyString<156>, long>
-    // MmapFiles::unordered_map_file<MyString<67>, short, collison<67, 0>>,
-    // MmapFiles::unordered_map_file<MyString<953>, long, collison<953, std::numeric_limits<std::size_t>::max()>>
-
-    MmapFiles::unordered_map_file<MyString<2>, long>
+    MmapFiles::unordered_map_lru<std::string, int>,
+    MmapFiles::unordered_map_lru<MyString<88>, long>,
+    MmapFiles::unordered_map_lru<MyString<257>, long, collison<257, 28>>,
+    MmapFiles::unordered_map_file<MyString<128>, int>,
+    MmapFiles::unordered_map_file<MyString<156>, long>,
+    MmapFiles::unordered_map_file<MyString<67>, short, collison<67, 0>>,
+    MmapFiles::unordered_map_file<MyString<953>, long, collison<953, std::numeric_limits<std::size_t>::max()>>
 >;
 TYPED_TEST_CASE(UnorderedMapReqTest, MyTypes);
-
-/*
 
 TYPED_TEST(UnorderedMapReqTest, Insert)
 {
@@ -149,8 +145,6 @@ TYPED_TEST(UnorderedMapReqTest, Emplace)
     ASSERT_EQ(pair_res.first->second, 19);
 }
 
-*/
-
 TYPED_TEST(UnorderedMapReqTest, Empty)
 {
     ASSERT_TRUE(this->cont.empty());
@@ -160,8 +154,6 @@ TYPED_TEST(UnorderedMapReqTest, Empty)
     this->cont.erase("");
     ASSERT_TRUE(this->cont.empty());
 }
-
-/*
 
 TYPED_TEST(UnorderedMapReqTest, Size)
 {
@@ -219,35 +211,33 @@ TYPED_TEST(UnorderedMapReqTest, Contains)
     ASSERT_TRUE(this->cont.contains(pair.first));
 }
 
-*/
-
 /*  NOTE: must add max load factor in
 */
 
-TYPED_TEST(UnorderedMapReqTest, Range)
-{
-    // can't access key_type in the defined class
-    // because of how gtest works
-    using key_type = typename std::remove_const<decltype(this->cont.begin()->first)>::type;
+// TYPED_TEST(UnorderedMapReqTest, Range)
+// {
+//     // can't access key_type in the defined class
+//     // because of how gtest works
+//     using key_type = typename std::remove_const<decltype(this->cont.begin()->first)>::type;
     
-    /*  NOTE: e and f get replaced
-    */
+//     /*  NOTE: e and f get replaced
+//     */
 
-    // aim for size(v) to be greater that reserved size of cont  
-    std::vector<key_type> v = { "a","b","c","d","e","f","g","h" };
-    // std::vector<key_type> v = { "a","b","c","d","e","f","g","h","i","j" };
-    for (const auto& s : v)
-    {
-        this->cont.emplace(s, 0);
-    }
+//     // aim for size(v) to be greater that reserved size of cont  
+//     std::vector<key_type> v = { "a","b","c","d","e","f","g","h" };
+//     // std::vector<key_type> v = { "a","b","c","d","e","f","g","h","i","j" };
+//     for (const auto& s : v)
+//     {
+//         this->cont.emplace(s, 0);
+//     }
 
-    for (const auto& p : this->cont)
-    {
-        v.erase(std::find(v.begin(), v.end(), p.first));
-    }
+//     for (const auto& p : this->cont)
+//     {
+//         v.erase(std::find(v.begin(), v.end(), p.first));
+//     }
     
-    ASSERT_TRUE(v.empty());
-}
+//     ASSERT_TRUE(v.empty());
+// }
 
 /*  perhaps a test like above except we erase from da map
 */

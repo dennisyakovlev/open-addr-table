@@ -2,10 +2,11 @@
 
 std::size_t SpecialHash::vals = 0;
 
-SpecialHash::~SpecialHash()
+std::ostream&
+operator<<(std::ostream& out, const SpecialHash& spec)
 {
-    first  = 0;
-    second = 0;
+    out << "{" << spec.first << "," << spec.second << "}";
+    return out;
 }
 
 SpecialHash

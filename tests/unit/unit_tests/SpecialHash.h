@@ -2,6 +2,7 @@
 #define UNIT_TESTS_SPECIALHASH
 
 #include <functional>
+#include <iostream>
 #include <utility>
 
 class SpecialHash : public std::pair<std::size_t, std::size_t>
@@ -10,10 +11,17 @@ public:
 
     using std::pair<std::size_t, std::size_t>::pair;
 
-    ~SpecialHash();
+    ~SpecialHash()
+    {
+        first  = 0;
+        second = 0;
+    }
 
     static std::size_t vals;
 };
+
+std::ostream&
+operator<<(std::ostream& out, const SpecialHash& spec);
 
 /**
  * @brief Generate a SpecialHash with a unique value

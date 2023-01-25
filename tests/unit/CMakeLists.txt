@@ -1,10 +1,8 @@
 set(sources
-    # test_basefile.cpp
-    # test_files.cpp
-    # test_lock_req.cpp
-    # test_recursive_lock.cpp
-    # test_umaplru.cpp
-    # test_unordered_map_req.cpp
+    test_lock_req.cpp
+    test_recursive_lock.cpp
+    test_umaplru.cpp
+    test_unordered_map_req.cpp
     test_linear_probe.cpp
     main.cpp
 )

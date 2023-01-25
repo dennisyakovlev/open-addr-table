@@ -11,7 +11,10 @@ template<std::size_t sz>
 struct MyString
 {
 
-    MyString() = default;
+    MyString()
+    {
+        ::memset(M_str, '\0', sz);
+    }
 
     MyString(const char* ptr)
     {

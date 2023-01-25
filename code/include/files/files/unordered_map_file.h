@@ -118,6 +118,11 @@ decrement_wrap(Sz& i, Sz mod)
  * @tparam KeyComp(curr,k) true if key at curr index a k compare equal,
  *                         false otherwise
  * @tparam ElemTransfer(into,from) put contents of index from into index into
+ * @tparam HashEq(curr,num) compairson of modded hash values of
+ *                          curr index with number num
+ *                          0) curr < num
+ *                          1) curr = num
+ *                          2) curr > num
  * @param cont container to manipulate
  * @param k key to insert
  * @param key_hash key hash, will begin searching from this index mod buckets
@@ -130,128 +135,61 @@ decrement_wrap(Sz& i, Sz mod)
 template<
     typename Cont,
     typename Arg, typename Sz,
-    typename IsFree, typename HashComp, typename KeyComp, typename ElemTransfer>
+    typename IsFree, typename HashComp, typename KeyComp, typename ElemTransfer,
+    typename HashEq>
 std::pair<Sz, bool>
 open_address_emplace_index(Cont& cont, const Arg& k, Sz key_hash, Sz buckets)
 {
-    /*  what if we try to insert an item into an already chained sequence
-
-        say somthing like
-
-        0
-        1
-        2 I
-        3 I
-        4 I
-        5
-
-        where I all have the same hash of 2, and we try to insert at 3 or 4
-
-        what should happen is the thing we try to insert gets put AFTER all of these
-            right now we move everything down for this, which we DONT want to do
-
-        what about and we try to insert 4
-        0
-        1
-        2 2
-        3 2
-        4 2 
-        5 2
-        6 3
-        7 3
-        8
-        9
-
-        insert 4
-        0
-        1
-        2 2
-        3 2
-        4 2   <- start here 
-        5 3
-        6 5   <- insert 4 here
-        7 5
-        8 
-        9
-
+    /*  The key is to make distinction between past the end collison
+        and normal collison
     */
 
-    auto index = key_hash % buckets;
-
-    /*  NOTE: i dont think we need this if, would prolly be pretty
-              efficient to just remove ths
+    /*  split into current index > than key_hash
+        and < key_hash
     */
+
+    // while(HashEq()(cont, index, key_hash) == 2)
+    // {
+    //     increment_wrap(index, buckets);
+    // }
+
+    /*  NOTE: tbh can use find here, assuming find returns the
+              last possible valid index
+    */
+
+    auto res = open_address_find<
+        Cont,
+        Arg, Sz,
+        IsFree, HashComp, KeyComp,
+        HashEq
+    >(cont, k, key_hash, buckets);
+    auto index = res.first;
+
     if (!IsFree()(cont, index))
     {
-        /*  NOTE: need to account for if there a table full of the
-                  same index
-
-            or do i? do we ALWAYS assume there is ATLEAST one space available ?
-                i think yes
-                since max_load_factor is 1 at most, we'd just rehash if there
-                was no space
-
-            conslusion, do not need to account for full table
-        */
-
-        /*  NOTE: optimization
-                  right now when we insert with collision, we insert into
-                  first "correct" place, if we iterate until the end
-                    ie go as far as possible in the collision
-                  would have to copy less
-        */
-
-        const auto start_index = index;
-        auto hash_comp_res = HashComp()(cont, index, start_index);
-        for (; !IsFree()(cont, index) && hash_comp_res < 2;)
+        auto temp = index;
+        for (; !IsFree()(cont, index);)
         {
-            /*  For key A,B know (A equals B) => (hash(A) == hash(b))
-
-                Can optimize to not do unecessary key compare when
-                key hashes unequal.
-            */
-            if (hash_comp_res == 1 && KeyComp()(cont, index, k))
-            {
-                return { index,false };
-            }
-
             increment_wrap(index, buckets);
-            hash_comp_res = HashComp()(cont, index, start_index);
         }
-
-        if (!IsFree()(cont, index))
+        for (; index != temp;)
         {
-            auto temp = index;
-            for (; !IsFree()(cont, index);)
-            {
-                increment_wrap(index, buckets);
-            }
-            for (; index != temp;)
-            {
-                auto decrement = index;
-                decrement_wrap(decrement, buckets);
-                ElemTransfer()(cont, index, decrement);
-                decrement_wrap(index, buckets);
-            }
+            auto decrement = index;
+            decrement_wrap(decrement, buckets);
+            ElemTransfer()(cont, index, decrement);
+            decrement_wrap(index, buckets);
         }
     }
 
     return  { index,true };
 }
 
-/*  what if we have table of all same hashes, will iterate infinetly
-*/
-
 /**
  * @brief See \ref open_address_emplace_index
  *
- * @tparam HashEq(curr,num) compairson of modded hash values of
- *                          curr index with number num
- *                          0) curr < num
- *                          1) curr = num
- *                          2) curr > num
  * @tparam Deconstruct(curr) destruct the element at index curr
- * @return Sz index of removed element
+ * @return Sz current index of removed element, buckets if no
+ *            element was removed
  */
 template<
     typename Cont,
@@ -261,183 +199,83 @@ template<
 Sz
 open_address_erase_index(Cont& cont, const Arg& k, Sz key_hash, Sz buckets)
 {
-    /*  deconstruct in here or in funcs ?
-            in funcs
+    auto res = open_address_find<
+        Cont,
+        Arg, Sz,
+        IsFree, HashComp, KeyComp,
+        HashEq
+    >(cont, k, key_hash, buckets);
 
-        original func deallocs the pair but keeps hash
-            not necisarily, so long as hashcomp does what we need
-
-        if original func does NOT dealloc we'd return pair<sz,bool>
-            we never need sz, we cannot return next iter, would be O(n) time
-
-        we might still want sz, say we want sz where sz index which
-        would be removed and would be buckets if nothing to remove
-            - but we want to dealloc, how would we do this if we returned index
-            - say like we have have a chain, would move the chain back, but
-              then would just replace the current elem, and not dealloc it
-
-            conclusion is we MUST dealloc the elem before manipulating
-            the rest of the container
-            question becomes in the original func or here
-
-        dealloc in here
-            - need dealloc()(cont, index)
-            - caller original loses control
-        dealloc in original func
-            - forced to check whether to dealloc or not
-        i think the point in dealloc in func is the decider, this puts logic of
-        erase into the original caller, which i dont want
-
-        for insert above is okay because conditional logic is not added,
-        theyre simply given an index to shove elem into, and do as told
-
-        dealloc within the func
-        return sz
-            sz is buckets if nothing deleted
-            sz is the index of deleted
-        
-
-
-    */
-
-    auto index = key_hash % buckets;
-
-    /*  Terminate the loop when
-            - there is a free element
-            - hash value at index modded by buckets
-              is greater than or equal to the value
-              of the initial index to search at 
-            - looped through all the buckets
-    */
-    const auto orig_index = index;
-    Sz i = 0;
-    while (!IsFree()(cont, index) &&
-           HashEq()(cont, index, orig_index) == 0 &&
-           i != buckets) 
-    {
-        increment_wrap(index, buckets);
-        ++i;
-
-
-        /*  need to keep looping until
-                - found free
-                - the hash of an index
-
-            say we look to remove key with modded hash of 2
-            0
-            1 1
-            2 1   <- start looking here
-            3 1
-            4 2   (what if no 2, but a 3)
-            5 3
-            6 6   <- we stop here
-            7
-            8
-
-            remove 5a
-            0 4
-            1 5a
-            2 5
-            3
-            4 4
-            5 4   <- start looking here
-
-            we will eaither get empty OR a number whose modded hash is
-            equal to the index
-
-            we need to know when a hash is diff and compare AGAINST a specific num
-                need another template param
-                no
-                    hash comp should just be replaced by a (index,num) where we compares
-                    modded hash at index against num
-
-            IsFree(curr), KeyComp(curr,k), Deconstruct(curr) 
-
-            is it possible to have a (modded hash >= curr index) AND we have to
-            search
-                yes, if collision overflows past end
-
-
-        */
-    }
-
-    /*  If any of the following hold, there is no
-        key to be erased.
-            - index is free
-                trivial
-            - loop through all buckets
-                no element was found whose hash value
-                could result in key hash we're looking
-                for
-            - hash values at index modded by buckets
-              is greater than hash of key we're looking
-              for
-                collision chains are non-decreasing
-                ignoring wrap around. if current is
-                greater, past end of a potenital chain
-    */
-    if (IsFree()(cont, index) ||
-        i == buckets ||
-        HashEq()(cont, index, key_hash) == 2)
+    if (!res.second)
     {
         return buckets;
     }
 
-    // at this point, we are on a set of hashes which have same modded value as
-    // the key hash we're looking for
-    // or
-    // the ENTIRE container is filled with hashed that were looking for
-
-    /*  this assumes key will be found
-            if key looking for doesnt exist
-    */
-
-    const auto temp = index;
-    while (KeyComp()(cont, index, k))
-    {
-        increment_wrap(index, buckets);
-    }
+    auto index = res.first;
 
     Deconstruct()(cont, index);
 
+    /*  NOTE: optimization to be used here, when we transfer elements back
+              we do unecessary copies
 
-    /*  curr - deconstructed element, where we move into
-        next - element to take from, check against
+        0
+        1 1
+        2 1   <- erase this guy
+        3 2
+        4 2
+        
+        now have this, we could just take index 4, and put into index 2
+        0
+        1 1
+        2
+        3 2
+        4 2
 
-        want to keep iterating while
-            next is free
-            and
-            non-decreasing sequence
-        but "non-decreasing" sequence can cause issues with something
-        like "D"
-        but we must account for something like A which flows past end
-
-            and not hash equals index
+        instead we move 3 -> 2 and 4 -> 3, extra ElemTransfer
 
     */
 
-    auto curr = index, next = index;
+    /*  while the modded hash is same, KEEP iterating no matter what (unless end of)
+        container
+
+        ONLY when the modded hash changes, recheck whether to keep iterating
+    */
+
+    /*  NOTE: we are making assumptions about ElemTransfer and Deconstruct and how
+              those will not effect the value of the hashes stored at the indicies
+              theyre operating on
+    */
+
+    /*  this loop starts out on an *empty* index, and so does inner
+    */
+
+    /*  Determine whether to loop through a set of
+        hashes.
+    */
+    auto next = index;
     increment_wrap(next, buckets);
-    while (!IsFree()(cont, next) && 
-           HashComp()(cont, curr, next) < 2 &&
-           HashEq()(cont, next, next) != 0)
+    while (!IsFree()(cont, next) &&
+           HashEq()(cont, next, next) != 1)
     {
-        ElemTransfer()(cont, curr, next);
-        
-        curr = next;
-        increment_wrap(next, buckets);
+        /*  Loop through all hashes which have the same
+            modded hash value.
+        */
+        auto curr = index, start_same = next;
+        // start_same issue, index or next
+        //  thought about next, but idk didnt go with it
+        while (!IsFree()(cont, next) &&
+               HashComp()(cont, next, start_same) == 1)
+        {
+            ElemTransfer()(cont, curr, next);
+
+            curr = next;
+            increment_wrap(next, buckets);
+        }
+
+        index = curr;
     }
 
-    
-
-    /*  NOTE: should we return the index of where the removed
-                element now is?
-    */
-
-    // if we're here then any of the above conditions is true, ie
-    // nothing needs to be done, can just continue and return normally
-
-    return curr;
+    return index;
 }
 
 /**
@@ -449,12 +287,93 @@ open_address_erase_index(Cont& cont, const Arg& k, Sz key_hash, Sz buckets)
 template<
     typename Cont,
     typename Arg, typename Sz,
-    typename IsFree, typename KeyComp,
+    typename IsFree, typename HashComp, typename KeyComp,
     typename HashEq>
-Sz
+std::pair<Sz, bool>
 open_address_find(const Cont& cont, const Arg& k, Sz key_hash, Sz buckets)
 {
-    auto index = key_hash % buckets;
+    /*  IF no overflow past end (normal):
+            keep looping as long as current hashes are <= key_hash
+        if overflow:
+            keep looping while increasing relative to prev
+    */
+
+    auto index    = key_hash % buckets;
+    bool iterated = false;
+
+    /*  Collision overflow past end. Will not find the key
+        here. Loop to the end of overflow.
+    */
+    while (!IsFree()(cont, index) &&
+           HashEq()(cont, index, index) == 2)
+    {
+        increment_wrap(index, buckets);
+        iterated = true;
+    }
+
+    /*  There can be no match for key "k" if end of
+        overflow results in
+            - free element
+            - the starting index of the overflow
+    */
+    if (IsFree()(cont, index) ||
+        (iterated && index == (key_hash % buckets)))
+    {
+        return { index,false };
+    }
+
+    /*  Can now search collision normally.
+    */
+
+    /*  The modded hash value form a non-decreasing
+        sequence. Keep looping until find index whose
+        modded hash value is greater than or equal to
+        modded key hash.
+    */
+    Sz iterations = 0;
+    while (!IsFree()(cont, index) &&
+           HashEq()(cont, index, key_hash % buckets) == 0 &&
+           iterations != buckets)
+    {
+        increment_wrap(index, buckets);
+        ++iterations;
+    }
+
+    /*  There can be no match for key "k" if landed on
+            - free element
+            - the modded by buckets hash value at index
+              os greater than the modded key hash. means
+              skipped over potential indicies where key
+              could exist
+            - same element as started at
+    */
+    if (IsFree()(cont, index) ||
+        HashEq()(cont, index, key_hash % buckets) == 2 ||
+        iterations == buckets)
+    {
+        return { index,false };
+    }
+
+    const auto start_same = index;
+    iterations = 0;
+    while (!IsFree()(cont, index) &&
+           HashComp()(cont, index, start_same) == 1 &&
+           iterations != buckets)
+    {
+        if (KeyComp()(cont, index, k))
+        {
+            return { index,true };
+        }
+
+        increment_wrap(index, buckets);
+        ++iterations;
+    }
+
+    return { index, false };
+
+
+
+
 
     /*  Terminate the loop when
             - there is a free element
@@ -492,32 +411,32 @@ open_address_find(const Cont& cont, const Arg& k, Sz key_hash, Sz buckets)
         i == buckets ||
         HashEq()(cont, index, key_hash) == 2)
     {
-        return buckets;
+        return { index,false };
     }
 
     /*  At this point, we are on a set of hashes or arbitrary size, 
         possibly filling the entier container, which have same modded
-        value asthe key hash we're looking for.
+        value as the modded key hash we're looking for.
     */  
 
     /*  Loop through all the hashes whose modded value
         is equal to the modded hash value of key k.
     */
-    const auto temp = index;
     Sz j = 0;
-    while (!IsFree(cont, index) &&
-           HashEq()(cont, index, temp) == 1 &&
+    while (!IsFree()(cont, index) &&
+           HashEq()(cont, index, key_hash) == 1 &&
            j != buckets)
     {
         if (KeyComp()(cont, index, k))
         {
-            return index;
+            return { index,true };
         }
 
         increment_wrap(index, buckets);
+        ++j;
     }
 
-    return buckets;
+    return { index,false };
 }
 
 template<
@@ -561,27 +480,18 @@ public:
         }
     };
 
-    struct is_free
-    {
-        bool
-        operator()(const element* blk) const
-        {
-            return get<0>(*blk);
-        }
-    };
-
     using testicle = unordered_map_file<Key, Value, Hash>;
 
-    struct Is_Free_Test
+    struct is_free
     {
         bool
         operator()(const testicle& cont, size_type index) const
         {
-            return is_free()(cont.M_file + index);
+            return get<0>(cont._block(index));
         }
     };
 
-    struct Hash_Comp_Test
+    struct hash_comp
     {
         size_type
         operator()(const testicle& cont, size_type curr, size_type against) const
@@ -593,13 +503,13 @@ public:
         }
     };
 
-    template<typename Uh>
-    struct Key_Comp_Test
+    template<typename K>
+    struct key_comp
     {
         /*  NOTE: should this be a perfect forward ?
         */
         bool
-        operator()(const testicle& cont, size_type curr, Uh k) const
+        operator()(const testicle& cont, size_type curr, K k) const
         {
             return cont._key(curr) == k;
         }
@@ -611,7 +521,6 @@ public:
         operator()(testicle& cont, size_type to, size_type from)
         {
             cont._block(to) = cont._block(from); 
-            cont._is_free(from) = true;
         }
     };
 
@@ -626,6 +535,16 @@ public:
         unordered_map_file<Key, Value, Hash>,
         convert, is_free>;
     using difference_type = typename iterator::difference_type;
+
+    struct local_hash_eq
+    {
+        size_type operator()(const testicle& cont, size_type curr, size_type num)
+        {
+            const auto modded_curr = cont._hash(curr) % cont.M_buckets;
+
+            return (modded_curr >= num) * (1 + (modded_curr > num));
+        }
+    };
 
 private:
 
@@ -709,6 +628,18 @@ private:
     _hash(size_type index) const
     {
         return get<1>(_block(index));
+    }
+
+    reference
+    obtain_value_type(size_type index)
+    {
+        return get<2>(_block(index));
+    }
+
+    const_reference
+    obtain_value_type(size_type index) const
+    {
+        return get<2>(_block(index));
     }
 
     reference_key
@@ -1035,7 +966,7 @@ public:
                     return 2;
                 }
 
-                return Hash_Comp_Test()(
+                return hash_comp()(
                     {cont.back().second, cont.back().first},
                     curr, against
                 );
@@ -1048,7 +979,7 @@ public:
             operator()(const local_cont& cont, size_type curr, const Key& k) const
             {
                 // Assume KeyComp does not compare against a nullptr.
-                return Key_Comp_Test<Key>()(
+                return key_comp<Key>()(
                     {cont.back().second, cont.back().first},
                     curr, k
                 );
@@ -1064,6 +995,18 @@ public:
                 cont[cont[from].second - start].first = to;
 
                 std::swap(cont[to], cont[from]);
+            }
+        };
+
+        struct bruh_hash_eq
+        {
+            size_type
+            operator()(const local_cont& cont, size_type curr, size_type num)
+            {
+                return local_hash_eq()(
+                    {cont.back().second, cont.back().first},
+                    curr, num
+                );
             }
         };
 
@@ -1087,7 +1030,8 @@ public:
             auto now_taken = open_address_emplace_index<
                 local_cont,
                 Key, size_type,
-                local_is_free, local_hash_comp, local_key_comp, local_elem_transfer
+                local_is_free, local_hash_comp, local_key_comp, local_elem_transfer,
+                bruh_hash_eq
             >(vec, _key(index), _hash(index), buckets).first;
 
             vec[index].first      = now_taken;
@@ -1142,17 +1086,6 @@ public:
         }
     }
 
-    /*  === HERE ===
-        fix find
-
-        as file state is correct but find isnt
-
-        perhaps have find as external func ?
-            prolly not (maybe yes acually)
-
-        we've pretty much implemented it in erase in one of the loops
-    */
-
     iterator
     find(const_reference_key k)
     {
@@ -1165,19 +1098,19 @@ public:
     const_iterator
     find(const_reference_key k) const
     {
-        const auto hashed = Hash()(k) % M_buckets;
-        auto index = hashed;
-        for (; _hash(index) == hashed;)
-        {
-            if (_key(index) == k)
-            {
-                return const_iterator(M_file + index);
-            }
+        const auto res = open_address_find<
+            decltype(*this),
+            key_type, size_type,
+            is_free, hash_comp, key_comp<key_type>,
+            local_hash_eq
+        >(*this, k, Hash()(k), M_buckets);
 
-            increment_wrap(index, M_buckets);
+        if (!res.second)
+        {
+            return const_iterator(M_file + M_buckets);
         }
 
-        return cend();
+        return const_iterator(M_file + res.first);
     }
 
     /**
@@ -1215,8 +1148,9 @@ public:
         auto res = open_address_emplace_index<
             decltype(*this),
             Arg, size_type,
-            Is_Free_Test, Hash_Comp_Test, Key_Comp_Test<Arg>, Elem_Move_Test>
-        (*this, k, hashed, M_buckets);
+            is_free, hash_comp, key_comp<Arg>, Elem_Move_Test,
+            local_hash_eq
+        >(*this, k, hashed, M_buckets);
 
         if (!res.second)
         {
@@ -1255,35 +1189,23 @@ public:
         return { res,false };
     }
 
-    /*  NOTE: do we actually erase ?
-              ie call deconstruct ? or just leave as is ?
-
-              yes should call deconstruct, since not our job to
-              optimize that
-    */
-
-    /*  NOTE: erase is wrong, we need to move potenital elements back,
-              just use the open_addr func
-
-    */
-
     iterator
     erase(const_iterator iter)
     {
-        auto index = iter_data(iter) - iter_data(cbegin());
-        if (!is_free()(M_file + index))
-        {
-            _is_free(index) = true;
-            --M_elem;
-        }
+        // auto index = iter_data(iter) - iter_data(cbegin());
+        // if (!is_free()(M_file + index))
+        // {
+        //     _is_free(index) = true;
+        //     --M_elem;
+        // }
 
-        if (empty())
-        {
-            return end();
-        }
+        // if (empty())
+        // {
+        //     return end();
+        // }
 
-        increment_wrap(index, M_buckets);
-        return iterator(M_file + index);
+        // increment_wrap(index, M_buckets);
+        // return iterator(M_file + index);
     }
 
     size_type
@@ -1293,28 +1215,23 @@ public:
         {
             void operator()(testicle& cont, size_type curr)
             {
-                std::allocator_traits<allocator>::destroy
+                /*  NOTE: this is wrong, we dont deconstruct the block,
+                          deconstuct the value_type ONLY
+                */
+                using alloc = std::allocator<value_type>;
+                alloc a;
+                std::allocator_traits<alloc>::destroy
                 (
-                    cont.M_alloc,
-                    std::addressof(cont._block(curr))
+                    a,
+                    std::addressof(cont.obtain_value_type(curr))
                 );
-            }
-        };
-        
-        struct local_hash_eq
-        {
-            size_type operator()(testicle& cont, size_type curr, size_type num)
-            {
-                const auto modded_curr = cont._hash(curr) % cont.M_buckets;
-
-                return (modded_curr >= num) * (1 + (modded_curr > num));
             }
         };
 
         auto res = open_address_erase_index<
             decltype(*this),
             key_type, size_type,
-            Is_Free_Test, Hash_Comp_Test, Key_Comp_Test<key_type>, Elem_Move_Test,
+            is_free, hash_comp, key_comp<key_type>, Elem_Move_Test,
             local_hash_eq, local_deconstruct>
         (*this, k, Hash()(k), M_buckets);
 
@@ -1323,8 +1240,8 @@ public:
             return 0;
         }
 
-        --M_elem;
         _is_free(res) = true;
+        --M_elem;
 
         return 1;
     }

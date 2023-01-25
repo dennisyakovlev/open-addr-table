@@ -18,7 +18,7 @@ public:
 
     using iterator_category = std::bidirectional_iterator_tag;
     using reference         = Val&;
-    using difference_type   = std::size_t;
+    using difference_type   = std::ptrdiff_t;
 
     using value_type        = Underlying;
     using pointer           = Underlying*;

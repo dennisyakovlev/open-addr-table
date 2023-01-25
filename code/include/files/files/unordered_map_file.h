@@ -163,7 +163,13 @@ open_address_emplace_index(Cont& cont, const Arg& k, Sz key_hash, Sz buckets)
         IsFree, HashComp, KeyComp,
         HashEq
     >(cont, k, key_hash, buckets);
+
     auto index = res.first;
+
+    if (res.second)
+    {
+        return { index,false };
+    }
 
     if (!IsFree()(cont, index))
     {
@@ -235,20 +241,6 @@ open_address_erase_index(Cont& cont, const Arg& k, Sz key_hash, Sz buckets)
 
     */
 
-    /*  while the modded hash is same, KEEP iterating no matter what (unless end of)
-        container
-
-        ONLY when the modded hash changes, recheck whether to keep iterating
-    */
-
-    /*  NOTE: we are making assumptions about ElemTransfer and Deconstruct and how
-              those will not effect the value of the hashes stored at the indicies
-              theyre operating on
-    */
-
-    /*  this loop starts out on an *empty* index, and so does inner
-    */
-
     /*  Determine whether to loop through a set of
         hashes.
     */
@@ -280,7 +272,7 @@ open_address_erase_index(Cont& cont, const Arg& k, Sz key_hash, Sz buckets)
 
 /**
  * @brief See \ref open_address_erase_index
- * 
+ * NOTE: update doc below 
  * @return Sz index of element in cont whose key compares equal
  *            to k, buckets otherwise
  */
@@ -291,13 +283,7 @@ template<
     typename HashEq>
 std::pair<Sz, bool>
 open_address_find(const Cont& cont, const Arg& k, Sz key_hash, Sz buckets)
-{
-    /*  IF no overflow past end (normal):
-            keep looping as long as current hashes are <= key_hash
-        if overflow:
-            keep looping while increasing relative to prev
-    */
-
+{   
     auto index    = key_hash % buckets;
     bool iterated = false;
 
@@ -354,6 +340,9 @@ open_address_find(const Cont& cont, const Arg& k, Sz key_hash, Sz buckets)
         return { index,false };
     }
 
+    /*  Loop through set of hashes which have the same
+        modded value as key hash.
+    */
     const auto start_same = index;
     iterations = 0;
     while (!IsFree()(cont, index) &&
@@ -370,73 +359,6 @@ open_address_find(const Cont& cont, const Arg& k, Sz key_hash, Sz buckets)
     }
 
     return { index, false };
-
-
-
-
-
-    /*  Terminate the loop when
-            - there is a free element
-            - hash value at index modded by buckets
-              is greater than or equal to the value
-              of the initial index to search at 
-            - looped through all the buckets
-    */
-    const auto orig_index = index;
-    Sz i = 0;
-    while (!IsFree()(cont, index) &&
-           HashEq()(cont, index, orig_index) == 0 &&
-           i != buckets) 
-    {
-        increment_wrap(index, buckets);
-        ++i;
-    }
-
-    /*  If any of the following hold, there is no
-        key to be erased.
-            - index is free
-                trivial
-            - loop through all buckets
-                no element was found whose hash value
-                could result in key hash we're looking
-                for
-            - hash values at index modded by buckets
-              is greater than hash of key we're looking
-              for
-                collision chains are non-decreasing
-                ignoring wrap around. if current is
-                greater, past end of a potenital chain
-    */
-    if (IsFree()(cont, index) ||
-        i == buckets ||
-        HashEq()(cont, index, key_hash) == 2)
-    {
-        return { index,false };
-    }
-
-    /*  At this point, we are on a set of hashes or arbitrary size, 
-        possibly filling the entier container, which have same modded
-        value as the modded key hash we're looking for.
-    */  
-
-    /*  Loop through all the hashes whose modded value
-        is equal to the modded hash value of key k.
-    */
-    Sz j = 0;
-    while (!IsFree()(cont, index) &&
-           HashEq()(cont, index, key_hash) == 1 &&
-           j != buckets)
-    {
-        if (KeyComp()(cont, index, k))
-        {
-            return { index,true };
-        }
-
-        increment_wrap(index, buckets);
-        ++j;
-    }
-
-    return { index,false };
 }
 
 template<
@@ -642,12 +564,6 @@ private:
         return get<2>(_block(index));
     }
 
-    reference_key
-    _key(size_type index)
-    {
-        return get<2>(_block(index)).first;
-    }
-
     const_reference_key
     _key(size_type index) const
     {
@@ -711,25 +627,27 @@ public:
     const_iterator
     cbegin() const
     {
-        auto ptr = M_file;
-        while (is_free()(ptr))
+        size_type index = 0;
+        while (is_free()(*this, index) &&
+               index != M_buckets)
         {
-            ++ptr;
+            ++index;
         }
 
-        return const_iterator(ptr);
+        return const_iterator(M_file + index);
     }
 
     iterator
     begin()
     {
-        auto ptr = M_file;
-        while (is_free()(ptr))
+        size_type index = 0;
+        while (is_free()(*this, index) &&
+               index != M_buckets)
         {
-            ++ptr;
+            ++index;
         }
 
-        return iterator(ptr);
+        return iterator(M_file + index);
     }
 
     const_iterator
@@ -1180,10 +1098,7 @@ public:
         {
             return emplace(std::forward<T>(k), std::forward<U>(val));
         }
-
-        // NOTE: should construct here ?
-        //       like using allocator_traits
-        // i think no since its "assignment"
+ 
         res->second = std::forward<U>(val);
 
         return { res,false };
@@ -1192,20 +1107,15 @@ public:
     iterator
     erase(const_iterator iter)
     {
-        // auto index = iter_data(iter) - iter_data(cbegin());
-        // if (!is_free()(M_file + index))
-        // {
-        //     _is_free(index) = true;
-        //     --M_elem;
-        // }
+        size_type index = iter_data(iter) - M_file;
+        erase(_key(iter_data(iter) - M_file));
 
-        // if (empty())
-        // {
-        //     return end();
-        // }
+        if (empty())
+        {
+            return end();
+        }
 
-        // increment_wrap(index, M_buckets);
-        // return iterator(M_file + index);
+        return iterator(M_file + index);
     }
 
     size_type

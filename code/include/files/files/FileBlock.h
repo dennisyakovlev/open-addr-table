@@ -273,6 +273,9 @@ CopyUnroll(block<Args1...>& into, const block<Args2...>& from)
 /*  NOTE: should all the elements have trivial destructors ?
 */
 
+/*  NOTE: define destructor
+*/
+
 /**
  * @brief A fixed size structure to represent arbitrary types
  *        stored in contiguous memory.

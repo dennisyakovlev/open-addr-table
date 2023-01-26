@@ -9,9 +9,9 @@
 #include <gtest/gtest.h>
 
 #include <files/Files.h>
-#include <unit_tests/Funcs.h>
-#include <unit_tests/SpecialHash.h>
-#include <unit_tests/Vars.h>
+#include <tests_support/Funcs.h>
+#include <tests_support/SpecialHash.h>
+#include <tests_support/Vars.h>
 
 /*  NOTE: tbh this file should be moved out of unit tests after
           we add permutations thing

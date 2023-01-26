@@ -7,7 +7,7 @@
 
 #include <gtest/gtest.h>
 
-#include <lock_tests/Defs.h>
+#include <tests_support/Vars.h>
 #include <files/locks.h>
 
 std::size_t           total;

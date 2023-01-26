@@ -7,10 +7,11 @@ if [ $? -ne 0 ]; then
 fi
 cd -
 
-files=(unit/UNIT_TESTS locks/LOCK_TESTS thourough/THOUROUGH_TESTS)
+# files=(unit/UNIT_TESTS locks/LOCK_TESTS thourough/THOUROUGH_TESTS)
+files=(thourough/THOUROUGH_TESTS)
 
 for file in "${files[@]}"; do
-    build/tests/"$file"
+    build/tests/tests_impl/"$file"
     printf "\n"
 done
 

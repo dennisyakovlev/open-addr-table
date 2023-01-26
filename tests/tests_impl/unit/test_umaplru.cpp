@@ -7,7 +7,7 @@
 #include <gtest/gtest.h>
 
 #include <files/unordered_map_lru.h>
-#include <unit_tests/CustomString.h>
+#include <tests_support/CustomString.h>
 
 using MmapFiles::unordered_map_lru;
 using std::string;

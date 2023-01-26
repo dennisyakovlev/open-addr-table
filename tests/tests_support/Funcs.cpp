@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <ftw.h>
 
-#include <unit_tests/Funcs.h>
+#include <tests_support/Funcs.h>
 
 int
 unlink_cb(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf)

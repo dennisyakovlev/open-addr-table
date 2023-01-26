@@ -1,4 +1,4 @@
-#include <unit_tests/SpecialHash.h>
+#include <tests_support/SpecialHash.h>
 
 std::size_t SpecialHash::vals = 0;
 

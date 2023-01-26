@@ -26,9 +26,9 @@
 
 #include <files/unordered_map_lru.h>
 #include <files/Files.h>
-#include <unit_tests/Funcs.h>
-#include <unit_tests/CustomString.h>
-#include <unit_tests/Vars.h>
+#include <tests_support/Funcs.h>
+#include <tests_support/CustomString.h>
+#include <tests_support/Vars.h>
 
 template<typename Cont>
 class UnorderedMapReqTest : public testing::Test
@@ -214,30 +214,25 @@ TYPED_TEST(UnorderedMapReqTest, Contains)
 /*  NOTE: must add max load factor in
 */
 
-// TYPED_TEST(UnorderedMapReqTest, Range)
-// {
-//     // can't access key_type in the defined class
-//     // because of how gtest works
-//     using key_type = typename std::remove_const<decltype(this->cont.begin()->first)>::type;
-    
-//     /*  NOTE: e and f get replaced
-//     */
+TYPED_TEST(UnorderedMapReqTest, Range)
+{
+    // can't access key_type in the defined class
+    // because of how gtest works
+    using key_type = typename std::remove_const<decltype(this->cont.begin()->first)>::type;
 
-//     // aim for size(v) to be greater that reserved size of cont  
-//     std::vector<key_type> v = { "a","b","c","d","e","f","g","h" };
-//     // std::vector<key_type> v = { "a","b","c","d","e","f","g","h","i","j" };
-//     for (const auto& s : v)
-//     {
-//         this->cont.emplace(s, 0);
-//     }
+    std::vector<key_type> v = { "a","b","c","d","e","f","g","h" };
+    for (const auto& s : v)
+    {
+        this->cont.emplace(s, 0);
+    }
 
-//     for (const auto& p : this->cont)
-//     {
-//         v.erase(std::find(v.begin(), v.end(), p.first));
-//     }
+    for (const auto& p : this->cont)
+    {
+        v.erase(std::find(v.begin(), v.end(), p.first));
+    }
     
-//     ASSERT_TRUE(v.empty());
-// }
+    ASSERT_TRUE(v.empty());
+}
 
 /*  perhaps a test like above except we erase from da map
 */

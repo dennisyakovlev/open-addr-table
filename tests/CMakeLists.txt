@@ -1,5 +1,6 @@
 find_package(Threads REQUIRED)
 
-add_subdirectory(unit)
-add_subdirectory(locks)
-add_subdirectory(thourough)
+set(tests_include ${CMAKE_CURRENT_SOURCE_DIR} CACHE FILEPATH "testing lib include dir")
+
+add_subdirectory(tests_support)
+add_subdirectory(tests_impl)

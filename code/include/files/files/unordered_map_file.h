@@ -446,16 +446,24 @@ public:
         }
     };
 
+    struct is_free_iter
+    {
+        bool operator()(element* ptr)
+        {
+            return get<0>(*ptr);
+        }
+    };
+
     using iterator       = bidirectional_openaddr<
         std::pair<const Key, Value>,
         element,
         unordered_map_file<Key, Value, Hash>,
-        convert, is_free>;
+        convert, is_free_iter>;
     using const_iterator = bidirectional_openaddr<
         const std::pair<const Key, Value>,
         element,
         unordered_map_file<Key, Value, Hash>,
-        convert, is_free>;
+        convert, is_free_iter>;
     using difference_type = typename iterator::difference_type;
 
     struct local_hash_eq

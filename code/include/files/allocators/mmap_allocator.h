@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <fcntl.h>
+#include <stdio.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -28,20 +29,12 @@ public:
 
 private:
 
-    bool
-    _ready() const
-    {
-        return ::access(M_file.c_str(), F_OK) == 0;
-    }
-
     int
-    _open_or_create()
+    open_or_create()
     {
         int fd;
 
-        /*  NOTE: do we need the seperate ifs ?
-        */
-        if (_ready())
+        if (::access(M_file.c_str(), F_OK) == 0)
         {
             fd = ::open(M_file.c_str(), O_RDWR, 0);
         }
@@ -53,59 +46,83 @@ private:
         return fd;
     }
 
-    size_type
-    _page_aligned(size_type n)
+    int
+    close(int fd)
     {
+        return ::close(fd);
+    }
+
+    size_type
+    page_aligned(size_type n)
+    {
+        auto page_sz = sysconf(_SC_PAGESIZE);
+        if (page_sz == -1)
+        {
+            page_sz = 4096;
+        }
+
         const auto sz = n * sizeof(value_type);
-        const auto page_sz = sysconf(_SC_PAGESIZE);
         return sz + (page_sz - (sz % page_sz));
     }
 
     pointer
-    _mmap(size_type sz)
+    mmap(size_type sz)
     {
-        int fd = _open_or_create();
+        int fd = open_or_create();
         if (fd == -1)
         {
-            /*  NOTE: return nullptr ???
-                        thing is you *can* have nullptr in rare cases
-                
-                same for mremap
-            */
-            return reinterpret_cast<pointer>(-1);
+            return reinterpret_cast<pointer>(MAP_FAILED);
         }
 
-        ::ftruncate64(fd, sz);
+        if (::ftruncate64(fd, sz))
+        {
+            close(fd);
+            return reinterpret_cast<pointer>(MAP_FAILED);
+        }
 
-        /*  NOTE: maybe give hint of random usage to not preload file
-        */
-        return static_cast<pointer>
-        (
-            ::mmap(nullptr, sz, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0)
-        );
+        void* ptr = ::mmap(nullptr, sz, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+
+        if (close(fd))
+        {
+            ::munmap(ptr, sz);
+
+            return static_cast<pointer>(MAP_FAILED);
+        }
+
+        return static_cast<pointer>(ptr);
     }
 
     pointer
-    _mremap(pointer old_addr, size_type old_sz, size_type sz)
+    mremap(pointer old_addr, size_type old_sz, size_type sz)
     {
-        int fd = _open_or_create();
+        int fd = open_or_create();
         if (fd == -1)
         {
-            return reinterpret_cast<pointer>(-1);
+            return reinterpret_cast<pointer>(MAP_FAILED);
         }
 
-        ::ftruncate64(fd, sz);
+        if (::ftruncate64(fd, sz))
+        {
+            close(fd);
+            return reinterpret_cast<pointer>(MAP_FAILED);
+        }
 
-        /*  NOTE: maybe give hint of random usage to not preload file
-        */
-        return static_cast<pointer>
-        (
-            ::mremap(old_addr, old_sz, sz, MREMAP_MAYMOVE)
-        );
+        void* ptr = ::mremap(old_addr, old_sz, sz, MREMAP_MAYMOVE);
+
+        if (close(fd))
+        {
+            ::munmap(ptr, sz);
+
+            return static_cast<pointer>(MAP_FAILED);
+        }
+
+        return static_cast<pointer>(ptr);
     }
 
 public:
 
+    // NOTE: delete this and add constructor which forces
+    //       person to acknowladge that theyve constructed unusable object
     /**
      * @brief Not usable if default constructed. Is just here
      *        if need be.
@@ -123,15 +140,16 @@ public:
     allocate(size_type n)
     {
         M_least = false;
-        return _mmap(n * sizeof(value_type));
+
+        return mmap(n * sizeof(value_type));
     }
 
     std::pair<pointer, size_type>
     allocate_at_least(std::size_t n)
     {
         M_least = true;
-        const auto sz = _page_aligned(n);
-        return {_mmap(sz), sz / n};
+        const auto sz = page_aligned(n);
+        return {mmap(sz), sz / n};
     }
 
     pointer
@@ -140,11 +158,11 @@ public:
         auto sz_old = n_old * sizeof(value_type);
         if (M_least)
         {
-            sz_old = _page_aligned(n_old);
+            sz_old = page_aligned(n_old);
         }
 
         M_least = false;
-        return _mremap(old_addr, sz_old, n * sizeof(value_type));
+        return mremap(old_addr, sz_old, n * sizeof(value_type));
     }
 
     std::pair<pointer, size_type>
@@ -153,12 +171,12 @@ public:
         auto sz_old = n_old * sizeof(value_type);
         if (M_least)
         {
-            sz_old = _page_aligned(n_old);
+            sz_old = page_aligned(n_old);
         }
 
         M_least = true;
-        const auto sz = _page_aligned(n);
-        return {_mremap(old_addr, sz_old, sz), sz / n};
+        const auto sz = page_aligned(n);
+        return {mremap(old_addr, sz_old, sz), sz / n};
     }
 
     /*  NOTE: do we truncate the file to 0 here ?
@@ -170,11 +188,17 @@ public:
         auto sz_old = n * sizeof(value_type);
         if (M_least)
         {
-            sz_old = _page_aligned(n);
+            sz_old = page_aligned(n);
         }
 
         ::msync(addr, sz_old * sizeof(value_type), MS_SYNC);
         ::munmap(addr, n);
+    }
+
+    int
+    destory()
+    {
+        return ::remove(M_file.c_str());
     }
 
 private:

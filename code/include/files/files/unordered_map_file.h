@@ -96,6 +96,97 @@ decrement_wrap(Sz& i, Sz mod)
 }
 
 /**
+ * @brief See \ref open_address_erase_index
+ * NOTE: update doc below 
+ * @return Sz index of element in cont whose key compares equal
+ *            to k, buckets otherwise
+ */
+template<
+    typename Cont,
+    typename Arg, typename Sz,
+    typename IsFree, typename HashComp, typename KeyComp,
+    typename HashEq>
+std::pair<Sz, bool>
+open_address_find(const Cont& cont, const Arg& k, Sz key_hash, Sz buckets)
+{   
+    auto index    = key_hash % buckets;
+    bool iterated = false;
+
+    /*  Collision overflow past end. Will not find the key
+        here. Loop to the end of overflow.
+    */
+    while (!IsFree()(cont, index) &&
+           HashEq()(cont, index, index) == 2)
+    {
+        increment_wrap(index, buckets);
+        iterated = true;
+    }
+
+    /*  There can be no match for key "k" if end of
+        overflow results in
+            - free element
+            - the starting index of the overflow
+    */
+    if (IsFree()(cont, index) ||
+        (iterated && index == (key_hash % buckets)))
+    {
+        return { index,false };
+    }
+
+    /*  Can now search collision normally.
+    */
+
+    /*  The modded hash value form a non-decreasing
+        sequence. Keep looping until find index whose
+        modded hash value is greater than or equal to
+        modded key hash.
+    */
+    Sz iterations = 0;
+    while (!IsFree()(cont, index) &&
+           HashEq()(cont, index, key_hash % buckets) == 0 &&
+           iterations != buckets)
+    {
+        increment_wrap(index, buckets);
+        ++iterations;
+    }
+
+    /*  There can be no match for key "k" if landed on
+            - free element
+            - the modded by buckets hash value at index
+              os greater than the modded key hash. means
+              skipped over potential indicies where key
+              could exist
+            - same element as started at
+    */
+    if (IsFree()(cont, index) ||
+        HashEq()(cont, index, key_hash % buckets) == 2 ||
+        iterations == buckets)
+    {
+        return { index,false };
+    }
+
+    /*  Loop through set of hashes which have the same
+        modded value as key hash.
+    */
+    const auto start_same = index;
+    iterations = 0;
+    while (!IsFree()(cont, index) &&
+           HashComp()(cont, index, start_same) == 1 &&
+           iterations != buckets)
+    {
+        if (KeyComp()(cont, index, k))
+        {
+            return { index,true };
+        }
+
+        increment_wrap(index, buckets);
+        ++iterations;
+    }
+
+    return { index, false };
+}
+
+/**
  * @brief Open addressing with linear probing algorithm.
  * 
  *        When collisions occur, the modded hashes of the
@@ -244,10 +335,13 @@ open_address_erase_index(Cont& cont, const Arg& k, Sz key_hash, Sz buckets)
     /*  Determine whether to loop through a set of
         hashes.
     */
-    auto next = index;
+    // Sz iterations = 0;
+    auto next = index, start_index = index;
     increment_wrap(next, buckets);
     while (!IsFree()(cont, next) &&
-           HashEq()(cont, next, next) != 1)
+           HashEq()(cont, next, next) != 1 &&
+           next != start_index)
+        //    iterations != buckets)
     {
         /*  Loop through all hashes which have the same
             modded hash value.
@@ -256,12 +350,16 @@ open_address_erase_index(Cont& cont, const Arg& k, Sz key_hash, Sz buckets)
         // start_same issue, index or next
         //  thought about next, but idk didnt go with it
         while (!IsFree()(cont, next) &&
-               HashComp()(cont, next, start_same) == 1)
+               HashComp()(cont, next, start_same) == 1 &&
+               HashEq()(cont, next, next) != 1 &&
+               next != start_index)
+            //    iterations != buckets)
         {
             ElemTransfer()(cont, curr, next);
 
             curr = next;
             increment_wrap(next, buckets);
+            // ++iterations;
         }
 
         index = curr;
@@ -270,96 +368,8 @@ open_address_erase_index(Cont& cont, const Arg& k, Sz key_hash, Sz buckets)
     return index;
 }
 
-/**
- * @brief See \ref open_address_erase_index
- * NOTE: update doc below 
- * @return Sz index of element in cont whose key compares equal
- *            to k, buckets otherwise
- */
-template<
-    typename Cont,
-    typename Arg, typename Sz,
-    typename IsFree, typename HashComp, typename KeyComp,
-    typename HashEq>
-std::pair<Sz, bool>
-open_address_find(const Cont& cont, const Arg& k, Sz key_hash, Sz buckets)
-{   
-    auto index    = key_hash % buckets;
-    bool iterated = false;
-
-    /*  Collision overflow past end. Will not find the key
-        here. Loop to the end of overflow.
-    */
-    while (!IsFree()(cont, index) &&
-           HashEq()(cont, index, index) == 2)
-    {
-        increment_wrap(index, buckets);
-        iterated = true;
-    }
-
-    /*  There can be no match for key "k" if end of
-        overflow results in
-            - free element
-            - the starting index of the overflow
-    */
-    if (IsFree()(cont, index) ||
-        (iterated && index == (key_hash % buckets)))
-    {
-        return { index,false };
-    }
-
-    /*  Can now search collision normally.
-    */
-
-    /*  The modded hash value form a non-decreasing
-        sequence. Keep looping until find index whose
-        modded hash value is greater than or equal to
-        modded key hash.
-    */
-    Sz iterations = 0;
-    while (!IsFree()(cont, index) &&
-           HashEq()(cont, index, key_hash % buckets) == 0 &&
-           iterations != buckets)
-    {
-        increment_wrap(index, buckets);
-        ++iterations;
-    }
-
-    /*  There can be no match for key "k" if landed on
-            - free element
-            - the modded by buckets hash value at index
-              os greater than the modded key hash. means
-              skipped over potential indicies where key
-              could exist
-            - same element as started at
-    */
-    if (IsFree()(cont, index) ||
-        HashEq()(cont, index, key_hash % buckets) == 2 ||
-        iterations == buckets)
-    {
-        return { index,false };
-    }
-
-    /*  Loop through set of hashes which have the same
-        modded value as key hash.
-    */
-    const auto start_same = index;
-    iterations = 0;
-    while (!IsFree()(cont, index) &&
-           HashComp()(cont, index, start_same) == 1 &&
-           iterations != buckets)
-    {
-        if (KeyComp()(cont, index, k))
-        {
-            return { index,true };
-        }
-
-        increment_wrap(index, buckets);
-        ++iterations;
-    }
-
-    return { index, false };
-}
+/* NOTE: want to be able to give custom allocator
+*/
 
 template<
     typename Key,
@@ -594,7 +604,8 @@ public:
     unordered_map_file()
         : M_name(_gen_random(16)),
           M_buckets(1), M_elem(0),
-          M_alloc(M_name)
+          M_alloc(M_name),
+          M_delete(false)
     {
         _init();
     }
@@ -602,7 +613,8 @@ public:
     unordered_map_file(std::string name)
         : M_name(std::move(name)),
           M_buckets(1), M_elem(0),
-          M_alloc(M_name)
+          M_alloc(M_name),
+          M_delete(false)
     {
         _init();
     }
@@ -613,7 +625,8 @@ public:
     unordered_map_file(size_type buckets)
         : M_name(_gen_random(16)),
           M_buckets(buckets), M_elem(0),
-          M_alloc(M_name)
+          M_alloc(M_name),
+          M_delete(false)
     {
         _init();
     }
@@ -621,9 +634,25 @@ public:
     unordered_map_file(size_type buckets, std::string name)
         : M_name(std::move(name)),
           M_buckets(buckets), M_elem(0),
-          M_alloc(M_name)
+          M_alloc(M_name),
+          M_delete(false)
     {
         _init();
+    }
+
+    ~unordered_map_file()
+    {
+        std::allocator_traits<allocator>::deallocate
+        (
+            M_alloc,
+            M_file,
+            M_buckets
+        );
+
+        if (M_delete)
+        {
+            M_alloc.destory();
+        }
     }
 
     size_type
@@ -1187,12 +1216,19 @@ public:
         M_elem = 0;
     }
 
+    void
+    destruct_is_wipe(bool b)
+    {
+        M_delete = b;
+    }
+
 // private:
 
     const std::string M_name;
     size_type         M_buckets, M_elem;
     allocator         M_alloc;
     element*          M_file;
+    bool              M_delete;
 
 };
 

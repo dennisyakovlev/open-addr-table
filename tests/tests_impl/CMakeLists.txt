@@ -9,8 +9,6 @@ set(sources
     ${CMAKE_CURRENT_SOURCE_DIR}/locks/test_fairness.cpp
 )
 
-find_package(Threads)
+add_executable(${tests} ${sources} main.cpp)
 
-add_executable(tests ${sources} main.cpp)
-
-target_link_libraries(tests Threads::Threads gtest tests_support)
+target_link_libraries(${tests} Threads::Threads gtest tests_support)

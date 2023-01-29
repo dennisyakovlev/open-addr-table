@@ -51,6 +51,12 @@ template<
     typename ContIn = std::initializer_list<std::size_t>>
 auto
 permutated_insertions(std::size_t buckets, ContIn lis)
+    -> decltype(
+        testing::Combine(
+            testing::ValuesIn(std::vector<Cont>{lis}),
+            testing::ValuesIn(all_permutations<Cont>(Cont(lis.size()))),
+            testing::ValuesIn(std::vector<Cont>{{buckets}})
+       ))
 {
     Cont range(lis.size());
     std::iota(range.begin(), range.end(), 0);

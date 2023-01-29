@@ -116,6 +116,8 @@ protected:
 //     erase_and_check(3);
 // }
 
+// NOTE: need to imlement resize
+
 // TEST_F(LinearProbeTest, KeyAlreadyExists)
 // {
 

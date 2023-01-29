@@ -2,22 +2,26 @@ cmake_minimum_required(VERSION 3.10.0)
 
 project("mmap lib")
 
-enable_testing()
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# NOTE: have a subfolder in tests dir which compiles the
-#       stuff which may not be portable, like futex and
-#       checks to see that it works (builds)
+find_package(Threads REQUIRED)
 
 set(include ${CMAKE_CURRENT_SOURCE_DIR}/code/include CACHE FILEPATH "include dir")
-set(unit_tests_exe UNIT_TESTS CACHE STRING "unit testing exectuable")
-set(lock_tests_exe LOCK_TESTS CACHE STRING "lock testing exectuable")
-set(thourough_tests_exe THOUROUGH_TESTS CACHE STRING "unordered map requirements thourough testing exectuable")
 
+if(TESTING EQUAL 1)
+    message(STATUS "Testing requested")
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ggdb3 -O0 -std=c++2a -Wall")
+    enable_testing()
 
-add_subdirectory(tests)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ggdb3 -O0 -Wall")
 
-# add_test(NAME unit_tests COMMAND ${unit_tests_exe})
-# add_test(NAME lock_tests COMMAND ${lock_tests_exe})
-# add_test(NAME thourough_tests_exe COMMAND ${lock_tests_exe})
+    set(build_tests BUILD_TESTS CACHE STRING "build test executable")
+    set(tests TESTS CACHE STRING "testing exectuable")
+    
+    add_subdirectory(tests/tests_build)
+    add_subdirectory(tests/tests_support)
+    add_subdirectory(tests/tests_impl)
+
+    add_test(NAME tests COMMAND $<TARGET_FILE:${tests}>)
+endif()

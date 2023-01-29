@@ -1,5 +1,6 @@
 build
+build_out
 .gdbinit
 unit_test_file
-*.out
-.vscode
+.**
+file_test.cpp

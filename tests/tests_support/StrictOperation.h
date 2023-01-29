@@ -1,4 +1,4 @@
-#ifndef CUSTOM_TESTS_SCRIPTOPERATIONS
+    #ifndef CUSTOM_TESTS_SCRIPTOPERATIONS
 #define CUSTOM_TESTS_SCRIPTOPERATIONS
 
 #include <exception>
@@ -14,7 +14,7 @@
 
 template<
     typename Cont,
-    std::enable_if<std::is_same<typename Cont::key_type, SpecialHash>::value, bool>::type = 0>
+    typename std::enable_if<std::is_same<typename Cont::key_type, SpecialHash>::value, bool>::type = 0>
 class StrictOperation
 {
 protected:

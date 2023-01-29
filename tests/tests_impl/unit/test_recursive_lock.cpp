@@ -20,26 +20,26 @@ TYPED_TEST_CASE(RecursiveLockTest, MyTypes);
 
 TYPED_TEST(RecursiveLockTest, Unlock)
 {
-    ASSERT_FALSE(this->lock.unlock());
-    ASSERT_FALSE(this->lock.unlock());
-    ASSERT_FALSE(this->lock.unlock());
+    ASSERT_FALSE(this->lock.unlock().first);
+    ASSERT_FALSE(this->lock.unlock().first);
+    ASSERT_FALSE(this->lock.unlock().first);
 }
 
 TYPED_TEST(RecursiveLockTest, RecursiveLock)
 {
-    ASSERT_TRUE(this->lock.lock());
-    ASSERT_TRUE(this->lock.lock());
-    ASSERT_TRUE(this->lock.lock());
+    ASSERT_TRUE(this->lock.lock().first);
+    ASSERT_TRUE(this->lock.lock().first);
+    ASSERT_TRUE(this->lock.lock().first);
 }
 
 TYPED_TEST(RecursiveLockTest, RecursiveLockUnlock)
 {
-    ASSERT_TRUE(this->lock.lock());    
-    ASSERT_TRUE(this->lock.lock());
-    ASSERT_TRUE(this->lock.unlock());
-    ASSERT_TRUE(this->lock.lock());
-    ASSERT_TRUE(this->lock.unlock());
-    ASSERT_TRUE(this->lock.unlock());
-    ASSERT_FALSE(this->lock.unlock());
-    ASSERT_TRUE(this->lock.lock());
+    ASSERT_TRUE(this->lock.lock().first);    
+    ASSERT_TRUE(this->lock.lock().first);
+    ASSERT_TRUE(this->lock.unlock().first);
+    ASSERT_TRUE(this->lock.lock().first);
+    ASSERT_TRUE(this->lock.unlock().first);
+    ASSERT_TRUE(this->lock.unlock().first);
+    ASSERT_FALSE(this->lock.unlock().first);
+    ASSERT_TRUE(this->lock.lock().first);
 }

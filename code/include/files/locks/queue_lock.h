@@ -4,14 +4,16 @@
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
+#include <errno.h>
 #include <linux/futex.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <sys/syscall.h>
+#include <sys/time.h>
 #include <unistd.h>
+#include <utility>
 
 #include <files/Defs.h>
-#include <files/Utils.h>
 
 FILE_NAMESPACE_BEGIN
 
@@ -24,7 +26,7 @@ public:
     {
     }
 
-    Returned<bool>
+    std::pair<bool, Errors>
     lock()
     {
         uint32_t curr_head = M_head.fetch_add(1);
@@ -49,7 +51,7 @@ public:
         return { true,Errors::no_error };
     }
 
-    Returned<bool>
+    std::pair<bool, Errors>
     unlock()
     {
         if (M_locked && M_holder == pthread_self())

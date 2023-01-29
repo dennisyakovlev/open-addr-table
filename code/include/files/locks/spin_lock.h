@@ -4,9 +4,9 @@
 #include <atomic>
 #include <cstddef>
 #include <pthread.h>
+#include <utility>
 
 #include <files/Defs.h>
-#include <files/Utils.h>
 
 #if defined(__x86_64__) || defined(__i386__)
 
@@ -58,7 +58,7 @@ public:
     {
     }
 
-    Returned<bool>
+    std::pair<bool, Errors>
     lock()
     {
         pthread_t curr_thread = pthread_self();     
@@ -101,7 +101,7 @@ public:
         return { times == 0,Errors::no_error };
     }
 
-    Returned<bool>
+    std::pair<bool, Errors>
     unlock()
     {
         if (!M_free.load() && M_holder == pthread_self())

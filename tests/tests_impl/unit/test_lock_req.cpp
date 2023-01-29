@@ -21,11 +21,11 @@ TYPED_TEST_CASE(LockTests, MyTypes);
 
 TYPED_TEST(LockTests, Lock)
 {
-    ASSERT_TRUE(this->lock.lock());
+    ASSERT_TRUE(this->lock.lock().first);
 }
 
 TYPED_TEST(LockTests, LockUnlock)
 {
-    ASSERT_TRUE(this->lock.lock());
-    ASSERT_TRUE(this->lock.unlock());
+    ASSERT_TRUE(this->lock.lock().first);
+    ASSERT_TRUE(this->lock.unlock().first);
 }

@@ -3,9 +3,9 @@
 
 #include <errno.h>
 #include <pthread.h>
+#include <utility>
 
 #include <files/Defs.h>
-#include <files/Utils.h>
 
 FILE_NAMESPACE_BEGIN
 
@@ -35,7 +35,7 @@ public:
         pthread_mutex_destroy(&M_mutex);
     }
 
-    Returned<bool>
+    std::pair<bool, Errors>
     lock()
     {
         if (!M_valid)
@@ -51,7 +51,7 @@ public:
         return { true,Errors::no_error };
     }
 
-    Returned<bool>
+    std::pair<bool, Errors>
     unlock()
     {
         if (!M_valid)

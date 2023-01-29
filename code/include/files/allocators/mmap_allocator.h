@@ -13,8 +13,15 @@
 #include <files/Defs.h>
 
 #ifndef _SC_PAGESIZE
-    #define _SC_PAGESIZE PAGE_SIZE
+    #ifdef PAGE_SIZE
+        #define _SC_PAGESIZE PAGE_SIZE
+    #else
+        #define _SC_PAGESIZE -1
+    #endif
 #endif
+
+/*  NOTE: mmap vs mmap64 
+*/
 
 FILE_NAMESPACE_BEGIN
 
@@ -179,9 +186,6 @@ public:
         return {mremap(old_addr, sz_old, sz), sz / n};
     }
 
-    /*  NOTE: do we truncate the file to 0 here ?
-    */
-
     void
     deallocate(pointer addr, size_type n)
     {
@@ -195,6 +199,8 @@ public:
         ::munmap(addr, n);
     }
 
+    /*  NOTE: destroy idea here is wrong 
+    */
     int
     destory()
     {

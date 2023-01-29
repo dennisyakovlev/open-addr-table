@@ -1,6 +1,7 @@
 #ifndef CUSTOM_FILE_LIBRARY_UNORDEREDMAPFILE
 #define CUSTOM_FILE_LIBRARY_UNORDEREDMAPFILE
 
+#include <array>
 #include <limits>
 #include <stdlib.h>
 #include <time.h>
@@ -335,13 +336,11 @@ open_address_erase_index(Cont& cont, const Arg& k, Sz key_hash, Sz buckets)
     /*  Determine whether to loop through a set of
         hashes.
     */
-    // Sz iterations = 0;
     auto next = index, start_index = index;
     increment_wrap(next, buckets);
     while (!IsFree()(cont, next) &&
            HashEq()(cont, next, next) != 1 &&
            next != start_index)
-        //    iterations != buckets)
     {
         /*  Loop through all hashes which have the same
             modded hash value.
@@ -353,13 +352,11 @@ open_address_erase_index(Cont& cont, const Arg& k, Sz key_hash, Sz buckets)
                HashComp()(cont, next, start_same) == 1 &&
                HashEq()(cont, next, next) != 1 &&
                next != start_index)
-            //    iterations != buckets)
         {
             ElemTransfer()(cont, curr, next);
 
             curr = next;
             increment_wrap(next, buckets);
-            // ++iterations;
         }
 
         index = curr;
@@ -601,6 +598,13 @@ private:
 
 public:
 
+    /*  NOTE: do we make distinction between no file name
+              and file name. where first implies in memory
+              whilst second implies mmap ?
+
+        or just force special req on allocator used ?
+    */
+
     unordered_map_file()
         : M_name(_gen_random(16)),
           M_buckets(1), M_elem(0),
@@ -638,6 +642,15 @@ public:
           M_delete(false)
     {
         _init();
+    }
+
+    unordered_map_file(unordered_map_file&& rval)
+        : M_name(std::move(rval.M_name)),
+          M_buckets(rval.M_buckets), M_elem(rval.M_elem),
+          M_alloc(rval.M_alloc),
+          M_delete(rval.M_delete)
+    {
+        M_file = M_alloc.allocate(M_buckets);
     }
 
     ~unordered_map_file()
@@ -1044,10 +1057,19 @@ public:
     iterator
     find(const_reference_key k)
     {
-        return iterator(
-            const_cast<typename iterator::pointer>(
-                iter_data(
-                    static_cast<const unordered_map_file<Key, Value, Hash>>(*this).find(k))));
+        const auto res = open_address_find<
+            decltype(*this),
+            key_type, size_type,
+            is_free, hash_comp, key_comp<key_type>,
+            local_hash_eq
+        >(*this, k, Hash()(k), M_buckets);
+
+        if (!res.second)
+        {
+            return iterator(M_file + M_buckets);
+        }
+
+        return iterator(M_file + res.first);
     }
 
     const_iterator
@@ -1095,7 +1117,7 @@ public:
     std::pair<iterator, bool>
     emplace(Arg&& arg, Args&&... args)
     {
-        // NOTE: must rehash and resize
+        // NOTE: DO THIS NEXT must rehash and resize
 
         Arg k(std::forward<Arg>(arg));
         const auto hashed = Hash()(k);
@@ -1229,6 +1251,11 @@ public:
     allocator         M_alloc;
     element*          M_file;
     bool              M_delete;
+
+    // constexpr static std::array<size_type, 64> SIZES = 
+    // {
+    //     7,
+    // };
 
 };
 

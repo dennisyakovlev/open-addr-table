@@ -5,6 +5,12 @@
 #include <iostream>
 #include <utility>
 
+/**
+ * @brief Class which lets different object have the same hash
+ *        values but not compare equal. Used as a key when
+ *        hash conflicts are wanted.
+ * 
+ */
 class SpecialHash : public std::pair<std::size_t, std::size_t>
 {
 public:

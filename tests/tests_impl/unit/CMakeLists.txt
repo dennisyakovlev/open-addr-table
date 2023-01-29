@@ -8,5 +8,4 @@ set(sources
 
 add_executable(${unit_tests_exe} ${sources})
 
-target_link_libraries(${unit_tests_exe} gtest Threads::Threads libtests)
-target_include_directories(${unit_tests_exe} PRIVATE ${include})
+target_link_libraries(${unit_tests_exe} tests_support Threads::Threads gtest)

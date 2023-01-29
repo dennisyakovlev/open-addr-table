@@ -1,5 +1,5 @@
-#ifndef UNIT_TESTS_CUSTOMSTRING
-#define UNIT_TESTS_CUSTOMSTRING
+#ifndef CUSTOM_TESTS_CUSTOMSTRING
+#define CUSTOM_TESTS_CUSTOMSTRING
 
 #include <algorithm>
 #include <cstddef>

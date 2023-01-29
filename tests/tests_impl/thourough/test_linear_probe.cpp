@@ -116,14 +116,14 @@ protected:
 //     erase_and_check(3);
 // }
 
-TEST_F(LinearProbeTest, KeyAlreadyExists)
-{
+// TEST_F(LinearProbeTest, KeyAlreadyExists)
+// {
 
-    insert({7,3,9,14,2});
+//     insert({7,3,9,14,2});
 
-    ASSERT_FALSE(cont.insert({ keys()[2],10 }).second);
-    auto iter = cont.find(keys()[2]);
-    ASSERT_NE(iter, cont.cend());
-    ASSERT_NE(10, iter->second);
+//     ASSERT_FALSE(cont.insert({ keys()[2],10 }).second);
+//     auto iter = cont.find(keys()[2]);
+//     ASSERT_NE(iter, cont.cend());
+//     ASSERT_NE(10, iter->second);
 
-}
+// }

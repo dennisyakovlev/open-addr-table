@@ -59,7 +59,6 @@
     (ptrdiff_t) and vice versa ONLY for indexing purposes.
 */
 
-
 FILE_NAMESPACE_BEGIN
 
 /**
@@ -1236,6 +1235,36 @@ public:
         }
 
         M_elem = 0;
+    }
+
+    size_type
+    bucket_count() const
+    {
+        return M_buckets;
+    }
+
+    size_type
+    max_bucket_count() const
+    {
+        return size_type / sizeof(element);
+    }
+
+    size_type
+    bucket_size(size_type index)
+    {
+        return !is_free()(*this, index);
+    }
+
+    size_type
+    bucket(const_reference_key k)
+    {
+        return Hash()(k) % M_buckets;
+    }
+
+    float
+    load_factor()
+    {
+        return M_elem / static_cast<float>(M_buckets);
     }
 
     void

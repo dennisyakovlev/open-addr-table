@@ -1119,34 +1119,27 @@ public:
         Arg k(std::forward<Arg>(arg));
         const auto hashed = Hash()(k);
 
-        auto res = open_address_find<
-            decltype(*this),
-            key_type, size_type,
-            is_free, hash_comp, key_comp<key_type>,
-            local_hash_eq
-        >(*this, k, hashed, M_buckets);
-
-        if (res.second)
-        {
-            return { iterator(M_file + res.first),false };
-        }
-
         if (M_elem == M_buckets)
         {
             reserve_choice(M_buckets + 1, true);
         }
 
-        const auto insert_index = open_address_emplace_index<
+        const auto res = open_address_emplace_index<
             decltype(*this),
             Arg, size_type,
             is_free, hash_comp, key_comp<Arg>, Elem_Move_Test,
             local_hash_eq
-        >(*this, k, hashed, M_buckets).first;
+        >(*this, k, hashed, M_buckets);
+
+        if (!res.second)
+        {
+            return { iterator(M_file + res.first),false };
+        }
 
         std::allocator_traits<allocator>::construct
         (
             M_alloc,
-            std::addressof(_block(insert_index)),
+            std::addressof(_block(res.first)),
             false,
             hashed,
             std::make_pair(std::move(k), std::forward<Args>(args)...)
@@ -1154,7 +1147,7 @@ public:
  
         ++M_elem;
 
-        return { iterator(M_file + insert_index),true };
+        return { iterator(M_file + res.first),true };
     }
 
     template<typename T, typename U>

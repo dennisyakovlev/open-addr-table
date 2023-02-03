@@ -16,9 +16,9 @@ using File       = MmapFiles::unordered_map_file<SpecialHash,std::size_t>;
 class PermutationTest : 
     public testing::TestWithParam<
         std::tuple<
-            HashHolder, // element to insert in order
-            HashHolder, // order which to remove
-            HashHolder  // size to reserve
+            HashHolder,
+            HashHolder,
+            HashHolder
         >
     >,
     public StrictOperation<File>
@@ -28,26 +28,13 @@ protected:
     PermutationTest()
         : StrictOperation(File(unit_test_file))
     {
-        reset_gen();
-    }
-
-    ~PermutationTest()
-    {
-        /*  clear instead of removing file then recreating.
-            assuming clear is correct, this is much faster
-        */
-        cont.clear();
-    }
-
-    std::size_t
-    size()
-    {
-        return std::get<2>(GetParam()).front();
     }
 
     /**
-     * @brief Elements with hash values to be inserted into
-     *        file.
+     * @brief Parameter access.
+     * 
+     * @return HashHolder elements with hash values to be inserted into
+     *                    file.
      */
     HashHolder
     elements()
@@ -56,13 +43,26 @@ protected:
     }
 
     /**
-     * @brief Container of indicies used to index given
-     *        elements.
+     * @brief Parameter access.
+     * 
+     * @return HashHolder container of indicies used to index given
+     *                    elements
      */
     HashHolder
     erase_indicies()
     {
         return std::get<1>(GetParam());
+    }
+
+    /**
+     * @brief Parameter access.
+     * 
+     * @return std::size_t number of buckets to reserve in the contatiner
+     */
+    std::size_t
+    size()
+    {
+        return std::get<2>(GetParam()).front();
     }
 
 };
@@ -89,8 +89,6 @@ TEST_P(PermutationTest, InsertThenErase)
     hash values in the conatiner should be located.
     This col corresponds to second param in
     permutated_insertions.
-
-
 
     Each test will permutate the order of which elements
     are *erased*.

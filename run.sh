@@ -25,8 +25,12 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-ctest --test-dir build_out --verbose
+ctest --test-dir "$build_dir" --verbose
 if [ $? -ne 0 ]; then
     >&2 echo "tests failed to run"
     exit 1
 fi
+
+cd "$build_dir"
+ls | egrep "^.{16}$" | xargs -I{} rm {}
+cd -

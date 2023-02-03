@@ -2,6 +2,7 @@
 #define CUSTOM_FILE_LIBRARY_UNORDEREDMAPFILE
 
 #include <array>
+#include <initializer_list>
 #include <limits>
 #include <stdlib.h>
 #include <time.h>
@@ -57,6 +58,9 @@
     In conlusion, throughout the container it is okay
     to convert "size_type" (size_t) to "difference_type"
     (ptrdiff_t) and vice versa ONLY for indexing purposes.
+*/
+
+/*  NOTE: add note about picking ideal_buckets to reserve / rehash to
 */
 
 FILE_NAMESPACE_BEGIN
@@ -231,23 +235,6 @@ template<
 std::pair<Sz, bool>
 open_address_emplace_index(Cont& cont, const Arg& k, Sz key_hash, Sz buckets)
 {
-    /*  The key is to make distinction between past the end collison
-        and normal collison
-    */
-
-    /*  split into current index > than key_hash
-        and < key_hash
-    */
-
-    // while(HashEq()(cont, index, key_hash) == 2)
-    // {
-    //     increment_wrap(index, buckets);
-    // }
-
-    /*  NOTE: tbh can use find here, assuming find returns the
-              last possible valid index
-    */
-
     auto res = open_address_find<
         Cont,
         Arg, Sz,
@@ -381,7 +368,6 @@ public:
         potential performance issue
     */
     using element = block<std::size_t, std::size_t, std::pair<const Key, Value>>;
-    // using element = block<bool, std::size_t, std::pair<Key, Value>>;
 
     using allocator = mmap_allocator<element>;
 
@@ -408,12 +394,10 @@ public:
         }
     };
 
-    using testicle = unordered_map_file<Key, Value, Hash>;
-
     struct is_free
     {
         bool
-        operator()(const testicle& cont, size_type index) const
+        operator()(const unordered_map_file& cont, size_type index) const
         {
             return get<0>(cont._block(index));
         }
@@ -422,7 +406,7 @@ public:
     struct hash_comp
     {
         size_type
-        operator()(const testicle& cont, size_type curr, size_type against) const
+        operator()(const unordered_map_file& cont, size_type curr, size_type against) const
         {
             const auto modded_curr    = cont._hash(curr) % cont.M_buckets;
             const auto modded_against = cont._hash(against) % cont.M_buckets;
@@ -437,7 +421,7 @@ public:
         /*  NOTE: should this be a perfect forward ?
         */
         bool
-        operator()(const testicle& cont, size_type curr, K k) const
+        operator()(const unordered_map_file& cont, size_type curr, K k) const
         {
             return cont._key(curr) == k;
         }
@@ -446,7 +430,7 @@ public:
     struct Elem_Move_Test
     {
         void
-        operator()(testicle& cont, size_type to, size_type from)
+        operator()(unordered_map_file& cont, size_type to, size_type from)
         {
             cont._block(to) = cont._block(from); 
         }
@@ -474,7 +458,7 @@ public:
 
     struct local_hash_eq
     {
-        size_type operator()(const testicle& cont, size_type curr, size_type num)
+        size_type operator()(const unordered_map_file& cont, size_type curr, size_type num)
         {
             const auto modded_curr = cont._hash(curr) % cont.M_buckets;
 
@@ -584,86 +568,182 @@ private:
         return get<2>(_block(index)).first;
     }
 
-    void
-    _init()
+    /**
+     * @brief Get the next preferred increasing size of the
+     *        container.
+     * 
+     * @param wanted_buckets Number of raw buckets wanted. This
+     *                       num doesn't consider load factor or
+     *                       anything else.
+     * @param mlf max load factor
+     * @return size_type next preffered size if can. otherwise
+     *                   minimum buckets accounted for load factor
+     *                   or max_size() + 1 if invalid params
+     */
+    size_type
+    next_size(size_type wanted_buckets, float mlf)
     {
-        M_file = M_alloc.allocate(M_buckets);
+        /*  max_size = 100
+            load_fac = 0.25
 
-        for (size_type i = 0; i != M_buckets; ++i)
+            wanted <= 100
+
+            load factor can change
+            need to consider number of elements
+
+
+        */
+
+        /* NOTE: careful with the ciel and >= here,
+                 think what i have is right
+        */
+        const auto max_sz = max_size();
+        if (wanted_buckets > max_sz ||
+            M_elem > max_sz * mlf ||
+            wanted_buckets > max_sz * mlf)
         {
-            _is_free(i) = true;
+            return max_sz + 1;
+        }
+
+        size_type min_buckets = wanted_buckets / mlf;
+        for (size_type potential : M_bucket_choices)
+        {
+            if (potential >= min_buckets)
+            {
+                return potential;
+            } 
+        }
+
+        return min_buckets;
+    }
+
+    /**
+     * @brief Same as std reserve except have choice to
+     *        rellocate or allocate memory.
+     * 
+     * @param buckets 
+     * @param realloc 
+     */
+    void
+    reserve_choice(size_type buckets, bool realloc)
+    {
+        if (buckets > M_buckets)
+        {
+            auto new_buckets = next_size(buckets, M_load);
+            if (new_buckets != max_size() + 1)
+            {
+                if (realloc)
+                {
+                    M_file  = M_alloc.reallocate(M_file, M_buckets, buckets);
+                }
+                else
+                {
+                    M_file  = M_alloc.allocate(buckets);
+                }
+
+                for (; M_buckets != buckets; ++M_buckets)
+                {
+                    _is_free(M_buckets) = true;
+                }
+
+                rehash(new_buckets);
+            }
         }
     }
 
 public:
 
-    /*  NOTE: do we make distinction between no file name
-              and file name. where first implies in memory
-              whilst second implies mmap ?
-
-        or just force special req on allocator used ?
-    */
-
     unordered_map_file()
         : M_name(_gen_random(16)),
-          M_buckets(1), M_elem(0),
+          M_buckets(0), M_elem(0),
           M_alloc(M_name),
-          M_delete(false)
+          M_delete(false),
+          M_load(1)
     {
-        _init();
+        reserve_choice(next_size(0, M_load), false);
+    }
+
+    unordered_map_file(size_type buckets)
+        : M_name(_gen_random(16)),
+          M_buckets(0), M_elem(0),
+          M_alloc(M_name),
+          M_delete(false),
+          M_load(1)
+    {
+        reserve_choice(next_size(buckets, M_load), false);
     }
 
     unordered_map_file(std::string name)
         : M_name(std::move(name)),
-          M_buckets(1), M_elem(0),
+          M_buckets(0), M_elem(0),
           M_alloc(M_name),
-          M_delete(false)
+          M_delete(false),
+          M_load(1)
     {
-        _init();
-    }
-
-    /*  NOTE: buckets must be > 0 other mmap will
-              freak out
-    */
-    unordered_map_file(size_type buckets)
-        : M_name(_gen_random(16)),
-          M_buckets(buckets), M_elem(0),
-          M_alloc(M_name),
-          M_delete(false)
-    {
-        _init();
+        reserve_choice(next_size(0, M_load), false);
     }
 
     unordered_map_file(size_type buckets, std::string name)
         : M_name(std::move(name)),
-          M_buckets(buckets), M_elem(0),
+          M_buckets(0), M_elem(0),
           M_alloc(M_name),
-          M_delete(false)
+          M_delete(false),
+          M_load(1)
     {
-        _init();
+        reserve_choice(next_size(buckets, M_load), false);
     }
 
-    unordered_map_file(unordered_map_file&& rval)
-        : M_name(std::move(rval.M_name)),
-          M_buckets(rval.M_buckets), M_elem(rval.M_elem),
-          M_alloc(rval.M_alloc),
-          M_delete(rval.M_delete)
+    /*  === HERE ===
+
+        implementing the constructors, need like
+        one which takes begin and end
+    */
+
+    unordered_map_file(
+        size_type buckets,
+        std::string name,
+        std::initializer_list<size_type> choices = {}
+    )
+        : M_name(std::move(name)),
+          M_buckets(0), M_elem(0),
+          M_alloc(M_name),
+          M_delete(false),
+          M_load(1)
     {
-        M_file = M_alloc.allocate(M_buckets);
+        if (choices.size())
+        {
+            bucket_choices(choices);
+        }
+
+        reserve_choice(next_size(buckets, M_load), false);
+    }
+
+    unordered_map_file(unordered_map_file&& rv)
+        : M_name(std::move(rv.M_name)),
+          M_buckets(rv.M_buckets), M_elem(rv.M_elem),
+          M_alloc(rv.M_alloc),
+          M_delete(rv.M_delete),
+          M_load(rv.M_load),
+          M_file(rv.M_file)
+    {
+        rv.M_file = nullptr;
     }
 
     ~unordered_map_file()
     {
-        std::allocator_traits<allocator>::deallocate
-        (
-            M_alloc,
-            M_file,
-            M_buckets
-        );
-
-        if (M_delete)
+        if (M_file)
         {
-            M_alloc.destory();
+            std::allocator_traits<allocator>::deallocate
+            (
+                M_alloc,
+                M_file,
+                M_buckets
+            );
+
+            if (M_delete)
+            {
+                M_alloc.destory();
+            }
         }
     }
 
@@ -714,12 +794,7 @@ public:
     void
     reserve(size_type buckets)
     {
-        M_file  = M_alloc.reallocate(M_file, M_buckets, buckets);
-
-        for (; M_buckets != buckets; ++M_buckets)
-        {
-            _is_free(M_buckets) = true;
-        }
+        reserve_choice(buckets, true);
     }
 
     void
@@ -1184,7 +1259,7 @@ public:
     {
         struct local_deconstruct
         {
-            void operator()(testicle& cont, size_type curr)
+            void operator()(unordered_map_file& cont, size_type curr)
             {
                 /*  NOTE: this is wrong, we dont deconstruct the block,
                           deconstuct the value_type ONLY
@@ -1241,6 +1316,12 @@ public:
     }
 
     size_type
+    max_size() const
+    {
+        return std::numeric_limits<size_type>::max() / sizeof(element);
+    }
+
+    size_type
     bucket_count() const
     {
         return M_buckets;
@@ -1249,25 +1330,38 @@ public:
     size_type
     max_bucket_count() const
     {
-        return size_type / sizeof(element);
+        return max_size();
     }
 
     size_type
-    bucket_size(size_type index)
+    bucket_size(size_type index) const
     {
         return !is_free()(*this, index);
     }
 
     size_type
-    bucket(const_reference_key k)
+    bucket(const_reference_key k) const
     {
         return Hash()(k) % M_buckets;
     }
 
     float
-    load_factor()
+    load_factor() const
     {
         return M_elem / static_cast<float>(M_buckets);
+    }
+
+    float
+    max_load_factor() const
+    {
+        return M_load;
+    }
+
+    void
+    max_load_factor(float mzlf)
+    {
+        /*  NOTE: remains unimplemented
+        */
     }
 
     void
@@ -1276,18 +1370,70 @@ public:
         M_delete = b;
     }
 
-// private:
+    /**
+     * @brief The choices of the number of buckets the
+     *        conatienr will allocate.
+     * 
+     * @return const std::vector<std::size_t>& 
+     */
+    const std::vector<std::size_t>&
+    bucket_choices() const
+    {
+        return M_bucket_choices;
+    }
+
+    /**
+     * @brief Sets the choices for number of buckets
+     *        to use. Requirements are
+     *          1) The minimum element of choices
+     *             must be greater than 0.
+     *          2) Elements must be increasing from
+     *             beginning to end.
+     * 
+     * @tparam T container which can be copy assigned 
+     *           to std::vector<std::size_t>
+     * @param choices values to set as
+     */
+    template<typename T>
+    void
+    bucket_choices(T&& choices)
+    {
+        M_bucket_choices = std::forward<T>(choices);
+    }
+
+    /**
+     * @brief See other bucket_choices
+     */
+    void
+    bucket_choices(std::initializer_list<size_type> choices)
+    {
+        M_bucket_choices = choices;
+    }
+
+private:
 
     const std::string M_name;
     size_type         M_buckets, M_elem;
     allocator         M_alloc;
-    element*          M_file;
     bool              M_delete;
-
-    // constexpr static std::array<size_type, 64> SIZES = 
-    // {
-    //     7,
-    // };
+    float             M_load;
+    element*          M_file;
+    std::vector<std::size_t> M_bucket_choices =
+    {
+        1,
+        7,
+        17,
+        73,
+        181,
+        431,
+        1777,
+        4721,
+        10253,
+        41017,
+        140989, 
+        487757,
+        1028957
+    };
 
 };
 

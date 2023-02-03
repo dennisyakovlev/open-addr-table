@@ -254,6 +254,53 @@ public:
         M_cache.clear();
     }
 
+    size_type
+    bucket_count() const
+    {
+        return M_cache.bucket_count();
+    }
+
+    size_type
+    max_bucket_count() const
+    {
+        return M_cache.max_bucket_count();
+    }
+
+    size_type
+    bucket_size(size_type index) const
+    {
+        if (index > M_cache.size())
+        {
+            return 0;
+        }
+
+        return M_cache.bucket_size(index);
+    }
+
+    size_type
+    bucket(const_reference_key k)
+    {
+        return M_cache.bucket(k);
+    }
+
+    float
+    load_factor() const
+    {
+        return M_cache.load_factor();
+    }
+
+    float
+    max_load_factor() const
+    {
+        return M_cache.max_load_factor();
+    }
+
+    void
+    max_load_factor(float mzlf)
+    {
+        M_cache.max_load_factor(mzlf);
+    }
+
 protected:    
 
     const key_type&

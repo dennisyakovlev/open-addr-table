@@ -70,7 +70,8 @@ using MyTypes = testing::Types
     MmapFiles::unordered_map_file<MyString<128>, int>,
     MmapFiles::unordered_map_file<MyString<156>, long>,
     MmapFiles::unordered_map_file<MyString<67>, short, collison<67, 0>>,
-    MmapFiles::unordered_map_file<MyString<953>, long, collison<953, std::numeric_limits<std::size_t>::max()>>
+    MmapFiles::unordered_map_file<MyString<953>, long, collison<953, std::numeric_limits<std::size_t>::max()>>,
+    MmapFiles::unordered_map_file<std::string, long>
 >;
 TYPED_TEST_CASE(UnorderedMapReqTest, MyTypes);
 
@@ -211,9 +212,6 @@ TYPED_TEST(UnorderedMapReqTest, Contains)
     ASSERT_TRUE(this->cont.contains(pair.first));
 }
 
-/*  NOTE: must add max load factor in
-*/
-
 TYPED_TEST(UnorderedMapReqTest, Range)
 {
     // can't access key_type in the defined class
@@ -228,11 +226,45 @@ TYPED_TEST(UnorderedMapReqTest, Range)
 
     for (const auto& p : this->cont)
     {
-        v.erase(std::find(v.begin(), v.end(), p.first));
+        auto iter = std::find(v.begin(), v.end(), p.first);
+        ASSERT_NE(iter, v.end()); 
+        v.erase(iter);
     }
     
     ASSERT_TRUE(v.empty());
 }
 
-/*  perhaps a test like above except we erase from da map
-*/
+TYPED_TEST(UnorderedMapReqTest, BucketCount)
+{
+    ASSERT_GE(this->cont.bucket_count(), 1);
+}
+
+TYPED_TEST(UnorderedMapReqTest, BucketSize)
+{
+    ASSERT_EQ(0, this->cont.bucket_size(7));
+    ASSERT_EQ(0, this->cont.bucket_size(2));    
+}
+
+TYPED_TEST(UnorderedMapReqTest, Bucket)
+{
+    using key_type = typename std::remove_const<decltype(this->cont.begin()->first)>::type;
+
+    std::vector<key_type> v = {
+        "key 1",
+        "key two",
+        "3",
+        "four",
+        "key-five",
+        "6_key",
+        "S E V E N",
+        "_8_"
+    };
+
+    for (const auto& k : v)
+    {
+        this->cont.insert({k, 97});
+
+        auto bucket = this->cont.bucket(k);
+        ASSERT_LT(bucket, this->cont.max_bucket_count());
+    }
+}

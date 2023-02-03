@@ -1,6 +1,6 @@
 set(sources
     ${CMAKE_CURRENT_SOURCE_DIR}/thourough/test_linear_probe.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/thourough/test_attempt.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/thourough/test_permutations.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/test_lock_req.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/test_unordered_map_req.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/test_recursive_lock.cpp

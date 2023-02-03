@@ -143,6 +143,12 @@ public:
     {
     }
 
+    /**
+     * @brief 
+     * 
+     * @param n must be greater than 0 
+     * @return pointer 
+     */
     pointer
     allocate(size_type n)
     {

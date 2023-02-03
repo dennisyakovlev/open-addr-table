@@ -68,5 +68,4 @@ permutated_insertions(std::size_t buckets, ContIn lis)
     );
 }
 
-
 #endif

@@ -12,6 +12,17 @@
 
 #include <tests_support/SpecialHash.h>
 
+/**
+ * @brief Type to be able to test insert and erase operations on a
+ *        container can be treated as an unordered map. Do extra
+ *        rigourous checks on the container with every insert and
+ *        erase.
+ *  
+ * @tparam Cont Type which can be treated as unordered map. Must have
+ *         emplace, erase, contains, and iterators. 
+ * @tparam std::enable_if<std::is_same<Cont::key_type,SpecialHash>::value,bool>::type Key
+ *          type must be a @ref SpecialHash
+ */
 template<
     typename Cont,
     typename std::enable_if<std::is_same<typename Cont::key_type, SpecialHash>::value, bool>::type = 0>
@@ -30,6 +41,14 @@ protected:
         : cont(std::move(c))
     {
         reset_gen();
+    }
+
+    ~StrictOperation()
+    {
+        /*  clear instead of removing file then recreating.
+            assuming clear is correct, this is much faster
+        */
+        cont.clear();
     }
 
     /**
@@ -55,8 +74,6 @@ protected:
         }
         rel[index] = false;
 
-        /*  NOTE: order here in EQ matters ???
-        */
         ASSERT_EQ(1, cont.erase(vec[index]))
             << "file failed to erase index\n    "
             << index << " = " << vec[index] << "\n";
@@ -81,6 +98,8 @@ protected:
      * @brief Insert set of hashes, each of which will be 
      *        transformed into a unique key.
      * 
+     * @tparam ArrayLike Container which must have size fuction. Will
+     *                   be used to initialize a std::vector.
      * @param lis set of hashes
      * @param pos position of keys array to insert into
      */

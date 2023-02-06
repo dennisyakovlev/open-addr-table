@@ -1,4 +1,4 @@
-    #ifndef CUSTOM_TESTS_SCRIPTOPERATIONS
+#ifndef CUSTOM_TESTS_SCRIPTOPERATIONS
 #define CUSTOM_TESTS_SCRIPTOPERATIONS
 
 #include <exception>
@@ -45,8 +45,8 @@ protected:
 
     ~StrictOperation()
     {
-        /*  clear instead of removing file then recreating.
-            assuming clear is correct, this is much faster
+        /*  Clear instead of manipulating a potential file.
+            Assuming clear is correct, this is much faster
         */
         cont.clear();
     }
@@ -75,10 +75,10 @@ protected:
         rel[index] = false;
 
         ASSERT_EQ(1, cont.erase(vec[index]))
-            << "file failed to erase index\n    "
+            << "container failed to erase index\n    "
             << index << " = " << vec[index] << "\n";
         ASSERT_FALSE(cont.contains(vec[index]))
-            << "file contains just erased index\n    "
+            << "container contains just erased index\n    "
             << index << " = " << vec[index] << "\n";
 
         for (size_type i = 0; i != vec.size(); ++i)
@@ -86,7 +86,7 @@ protected:
             if (rel[i])
             {
                 ASSERT_TRUE(cont.contains(vec[i]))
-                    << "file is missing index\n    "
+                    << "container is missing index\n    "
                     << i << " = " << vec[i] << "\n"
                     << "when erasing index\n    "
                     << index << "\n";
@@ -114,7 +114,9 @@ protected:
         for (std::size_t hash : lis)
         {
             auto spec = gen_unique(hash);
-            ASSERT_TRUE(cont.emplace(spec, 0).second);
+            ASSERT_TRUE(cont.emplace(spec, 0).second)
+                << "container already contains what should be unique key\n"
+                << "key = " << spec << "\n";
             vec.insert(vec.begin() + pos + j, spec);
             ++j;
         }

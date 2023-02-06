@@ -106,12 +106,12 @@ decrement_wrap(Sz& i, Sz mod)
  *            to k, buckets otherwise
  */
 template<
-    typename Cont,
+    typename Pointer,
     typename Arg, typename Sz,
     typename IsFree, typename HashComp, typename KeyComp,
     typename HashEq>
 std::pair<Sz, bool>
-open_address_find(const Cont& cont, const Arg& k, Sz key_hash, Sz buckets)
+open_address_find(const Pointer cont, const Arg& k, Sz key_hash, Sz buckets)
 {   
     auto index    = key_hash % buckets;
     bool iterated = false;
@@ -228,15 +228,15 @@ open_address_find(const Cont& cont, const Arg& k, Sz key_hash, Sz buckets)
  *                            bool - true if inserted, false otherwise
  */
 template<
-    typename Cont,
+    typename Pointer,
     typename Arg, typename Sz,
     typename IsFree, typename HashComp, typename KeyComp, typename ElemTransfer,
     typename HashEq>
 std::pair<Sz, bool>
-open_address_emplace_index(Cont& cont, const Arg& k, Sz key_hash, Sz buckets)
+open_address_emplace_index(Pointer cont, const Arg& k, Sz key_hash, Sz buckets)
 {
     auto res = open_address_find<
-        Cont,
+        Pointer,
         Arg, Sz,
         IsFree, HashComp, KeyComp,
         HashEq
@@ -276,15 +276,15 @@ open_address_emplace_index(Cont& cont, const Arg& k, Sz key_hash, Sz buckets)
  *            element was removed
  */
 template<
-    typename Cont,
+    typename Pointer,
     typename Arg, typename Sz,
     typename IsFree, typename HashComp, typename KeyComp, typename ElemTransfer,
     typename HashEq, typename Deconstruct>
 Sz
-open_address_erase_index(Cont& cont, const Arg& k, Sz key_hash, Sz buckets)
+open_address_erase_index(Pointer cont, const Arg& k, Sz key_hash, Sz buckets)
 {
     auto res = open_address_find<
-        Cont,
+        Pointer,
         Arg, Sz,
         IsFree, HashComp, KeyComp,
         HashEq
@@ -357,7 +357,8 @@ open_address_erase_index(Cont& cont, const Arg& k, Sz key_hash, Sz buckets)
 template<
     typename Key,
     typename Value,
-    typename Hash  = std::hash<Key>>
+    typename Hash = std::hash<Key>,
+    template<typename...> typename Allocator = mmap_allocator>
 class unordered_map_file
 {
 public:
@@ -369,7 +370,7 @@ public:
     */
     using element = block<std::size_t, std::size_t, std::pair<const Key, Value>>;
 
-    using allocator = mmap_allocator<element>;
+    using allocator = Allocator<element>;
 
     using value_type      = std::pair<const Key, Value>;
     using reference       = std::pair<const Key, Value>&;
@@ -385,6 +386,86 @@ public:
     using const_pointer_key   = const Key*;
     using mapped_type         = Value;
 
+    struct TESTING_STRUCT
+    {
+
+        TESTING_STRUCT() = delete;
+
+        TESTING_STRUCT(element* ptr)
+            : M_ptr(ptr)
+        {
+        }
+
+        TESTING_STRUCT(element* ptr, size_type buckets)
+            : M_ptr(ptr), M_buckets(buckets)
+        {
+        }
+
+        TESTING_STRUCT(std::pair<element*, size_type> p)
+            : M_ptr(p.first), M_buckets(p.second)
+        {
+        }
+
+        ~TESTING_STRUCT() = default;
+
+        element&
+        block(size_type index)
+        {
+            return M_ptr[index];
+        }
+
+        const element&
+        block(size_type index) const
+        {
+            return M_ptr[index];
+        }
+
+        size_type&
+        free(size_type index)
+        {
+            return get<0>(block(index));
+        }
+
+        size_type
+        free(size_type index) const
+        {
+            return get<0>(block(index));
+        }
+
+        size_type&
+        hash(size_type index)
+        {
+            return get<1>(block(index));
+        }
+
+        size_type
+        hash(size_type index) const
+        {
+            return get<1>(block(index));
+        }
+
+        const_reference_key
+        key(size_type index) const
+        {
+            return get<2>(block(index)).first;
+        }
+
+        reference
+        value_type(size_type index)
+        {
+            return get<2>(block(index));
+        }
+
+        size_type
+        buckets() const
+        {
+            return M_buckets;
+        }
+
+        element*  M_ptr;
+        size_type M_buckets;
+    };
+
     struct convert
     {
         pointer
@@ -397,19 +478,19 @@ public:
     struct is_free
     {
         bool
-        operator()(const unordered_map_file& cont, size_type index) const
+        operator()(TESTING_STRUCT cont, size_type index) const
         {
-            return get<0>(cont._block(index));
+            return cont.free(index);
         }
     };
 
     struct hash_comp
     {
         size_type
-        operator()(const unordered_map_file& cont, size_type curr, size_type against) const
+        operator()(TESTING_STRUCT cont, size_type curr, size_type against) const
         {
-            const auto modded_curr    = cont._hash(curr) % cont.M_buckets;
-            const auto modded_against = cont._hash(against) % cont.M_buckets;
+            const auto modded_curr    = cont.hash(curr) % cont.buckets();
+            const auto modded_against = cont.hash(against) % cont.buckets();
 
             return (modded_curr >= modded_against) * (1 + (modded_curr > modded_against));
         }
@@ -421,18 +502,18 @@ public:
         /*  NOTE: should this be a perfect forward ?
         */
         bool
-        operator()(const unordered_map_file& cont, size_type curr, K k) const
+        operator()(TESTING_STRUCT cont, size_type curr, K k) const
         {
-            return cont._key(curr) == k;
+            return cont.key(curr) == k;
         }
     };
 
     struct Elem_Move_Test
     {
         void
-        operator()(unordered_map_file& cont, size_type to, size_type from)
+        operator()(TESTING_STRUCT cont, size_type to, size_type from)
         {
-            cont._block(to) = cont._block(from); 
+            cont.block(to) = cont.block(from); 
         }
     };
 
@@ -458,9 +539,9 @@ public:
 
     struct local_hash_eq
     {
-        size_type operator()(const unordered_map_file& cont, size_type curr, size_type num)
+        size_type operator()(TESTING_STRUCT cont, size_type curr, size_type num)
         {
-            const auto modded_curr = cont._hash(curr) % cont.M_buckets;
+            const auto modded_curr = cont.hash(curr) % cont.buckets();
 
             return (modded_curr >= num) * (1 + (modded_curr > num));
         }
@@ -514,60 +595,6 @@ private:
         return tmp_s;
     }
 
-    element&
-    _block(size_type index)
-    {
-        return *(M_file + index);
-    }
-
-    const element&
-    _block(size_type index) const
-    {
-        return *(M_file + index);
-    }
-
-    size_type&
-    _is_free(size_type index)
-    {
-        return get<0>(_block(index));
-    }
-
-    size_type
-    _is_free(size_type index) const
-    {
-        return get<0>(_block(index));
-    }
-
-    size_type&
-    _hash(size_type index)
-    {
-        return get<1>(_block(index));
-    }
-
-    size_type
-    _hash(size_type index) const
-    {
-        return get<1>(_block(index));
-    }
-
-    reference
-    obtain_value_type(size_type index)
-    {
-        return get<2>(_block(index));
-    }
-
-    const_reference
-    obtain_value_type(size_type index) const
-    {
-        return get<2>(_block(index));
-    }
-
-    const_reference_key
-    _key(size_type index) const
-    {
-        return get<2>(_block(index)).first;
-    }
-
     /**
      * @brief Get the next preferred increasing size of the
      *        container.
@@ -618,37 +645,39 @@ private:
     }
 
     /**
-     * @brief Same as std reserve except have choice to
-     *        rellocate or allocate memory.
+     * @brief Reserves elements according to @ref next_size
      * 
-     * @param buckets 
-     * @param realloc 
+     * @param buckets number of requested buckets
+     * @param mlf max load factor
+     * @param realloc true to reallocate existing memory, false to
+     *                allocate new memory
+     * @return true reserved more space
+     * @return false failed to reserve space
      */
-    void
-    reserve_choice(size_type buckets, bool realloc)
+    bool
+    reserve_choice(size_type buckets, float mlf, bool realloc)
     {
-        if (buckets > M_buckets)
+        auto new_buckets = next_size(buckets, mlf);
+        if (new_buckets != max_size() + 1)
         {
-            auto new_buckets = next_size(buckets, M_load);
-            if (new_buckets != max_size() + 1)
+            if (realloc)
             {
-                if (realloc)
-                {
-                    M_file  = M_alloc.reallocate(M_file, M_buckets, buckets);
-                }
-                else
-                {
-                    M_file  = M_alloc.allocate(buckets);
-                }
-
-                for (; M_buckets != buckets; ++M_buckets)
-                {
-                    _is_free(M_buckets) = true;
-                }
-
-                rehash(new_buckets);
+                M_file  = M_alloc.reallocate(M_file, M_buckets, new_buckets);
             }
+            else
+            {
+                M_file  = M_alloc.allocate(new_buckets);
+            }
+
+            for (; M_buckets != new_buckets; ++M_buckets)
+            {
+                TESTING_STRUCT(M_file).free(M_buckets) = true;
+            }
+
+            return true;
         }
+
+        return false;
     }
 
 public:
@@ -660,7 +689,7 @@ public:
           M_delete(false),
           M_load(1)
     {
-        reserve_choice(next_size(0, M_load), false);
+        reserve_choice(0, M_load, false);
     }
 
     unordered_map_file(size_type buckets)
@@ -670,7 +699,7 @@ public:
           M_delete(false),
           M_load(1)
     {
-        reserve_choice(next_size(buckets, M_load), false);
+        reserve_choice(buckets, M_load, false);
     }
 
     unordered_map_file(std::string name)
@@ -680,7 +709,7 @@ public:
           M_delete(false),
           M_load(1)
     {
-        reserve_choice(next_size(0, M_load), false);
+        reserve_choice(0, M_load, false);
     }
 
     unordered_map_file(size_type buckets, std::string name)
@@ -715,7 +744,7 @@ public:
             bucket_choices(choices);
         }
 
-        reserve_choice(next_size(buckets, M_load), false);
+        reserve_choice(buckets, M_load, false);
     }
 
     unordered_map_file(unordered_map_file&& rv)
@@ -740,10 +769,12 @@ public:
                 M_buckets
             );
 
-            if (M_delete)
-            {
-                M_alloc.destory();
-            }
+            /*  NOTE: fix up alloc destroy
+            */
+            // if (M_delete)
+            // {
+            //     M_alloc.destroy();
+            // }
         }
     }
 
@@ -757,7 +788,7 @@ public:
     cbegin() const
     {
         size_type index = 0;
-        while (is_free()(*this, index) &&
+        while (is_free()(M_file, index) &&
                index != M_buckets)
         {
             ++index;
@@ -770,7 +801,7 @@ public:
     begin()
     {
         size_type index = 0;
-        while (is_free()(*this, index) &&
+        while (is_free()(M_file, index) &&
                index != M_buckets)
         {
             ++index;
@@ -794,7 +825,8 @@ public:
     void
     reserve(size_type buckets)
     {
-        reserve_choice(buckets, true);
+        // reserve_choice(buckets, M_load, true);
+        rehash(buckets);
     }
 
     void
@@ -970,6 +1002,15 @@ public:
 
         */
 
+        /*  Can use this containers size type since 
+                size_type -> ptrdiff_t
+            is okay and
+                ptrdiff_t -> Cont::size_type
+            is also okay. So
+                size_type -> Cont::size_type
+            if okay
+        */
+
         /*  v[i].first  - index i referencing a location in the current
                           mmap will be placed into the v[i].first location,
                           which references a location in the new mmap
@@ -979,15 +1020,6 @@ public:
                           mmap
         */
         using local_cont = std::vector<std::pair<size_type, element*>>;
-
-        /*  Can use this containers size type since 
-                size_type -> ptrdiff_t
-            is okay and
-                ptrdiff_t -> Cont::size_type
-            is also okay. So
-                size_type -> Cont::size_type
-            if okay
-        */
 
         struct local_is_free
         {
@@ -1052,14 +1084,16 @@ public:
             }
         };
 
+        const auto new_buckets = next_size(buckets, M_load);
+
         constexpr auto invalid_index = std::numeric_limits<size_type>::max();
         local_cont vec(
-            std::max(buckets, M_buckets) + 1,
+            std::max(new_buckets, M_buckets) + 1,
             {invalid_index, nullptr}
         );
         /*  Keep reference to some data to be used in functors.
         */
-        vec.back() = { buckets,M_file };
+        vec.back() = { new_buckets,M_file };
 
         /*  Insert pointers to all taken elements from the
             current containers into temporary container.
@@ -1069,21 +1103,22 @@ public:
             const auto data       = iter_data(iter);
             const size_type index = data - M_file;
 
+            TESTING_STRUCT temp(M_file);
             auto now_taken = open_address_emplace_index<
                 local_cont,
                 Key, size_type,
                 local_is_free, local_hash_comp, local_key_comp, local_elem_transfer,
                 bruh_hash_eq
-            >(vec, _key(index), _hash(index), buckets).first;
+            >(vec, temp.key(index), temp.hash(index), new_buckets).first;
 
             vec[index].first      = now_taken;
             vec[now_taken].second = M_file + index;
         }
 
-        if (buckets > M_buckets)
-        {
-            reserve(buckets);
-        }
+        // if (buckets > M_buckets)
+        // {
+            reserve_choice(new_buckets, M_load, true);
+        // }
 
         /*  NOTE: document
         */
@@ -1115,28 +1150,31 @@ public:
                 while (stack.size() > 1 )
                 {
                     auto end = stack.rbegin();
-                    Elem_Move_Test()(*this, *end, *(end + 1));
+                    Elem_Move_Test()(M_file, *end, *(end + 1));
                     stack.pop_back();
                 }
                 stack.pop_back();
             }
         }
 
-        if (buckets < M_buckets)
-        {
-            reserve(buckets);
-        }
+        // if (buckets < M_buckets)
+        // {
+            /*  NOTE: careful, reserve_choice is for making container
+                      larger
+            */
+            // reserve_choice(buckets, M_load, true);
+        // }
     }
 
     iterator
     find(const_reference_key k)
     {
         const auto res = open_address_find<
-            decltype(*this),
+            std::pair<element*, size_type>,
             key_type, size_type,
             is_free, hash_comp, key_comp<key_type>,
             local_hash_eq
-        >(*this, k, Hash()(k), M_buckets);
+        >({M_file, M_buckets}, k, Hash()(k), M_buckets);
 
         if (!res.second)
         {
@@ -1150,11 +1188,11 @@ public:
     find(const_reference_key k) const
     {
         const auto res = open_address_find<
-            decltype(*this),
+            std::pair<element*, size_type>,
             key_type, size_type,
             is_free, hash_comp, key_comp<key_type>,
             local_hash_eq
-        >(*this, k, Hash()(k), M_buckets);
+        >({M_file, M_buckets}, k, Hash()(k), M_buckets);
 
         if (!res.second)
         {
@@ -1196,15 +1234,15 @@ public:
 
         if (M_elem == M_buckets)
         {
-            reserve_choice(M_buckets + 1, true);
+            reserve_choice(M_buckets + 1, M_load, true);
         }
 
         const auto res = open_address_emplace_index<
-            decltype(*this),
+            std::pair<element*, size_type>,
             Arg, size_type,
             is_free, hash_comp, key_comp<Arg>, Elem_Move_Test,
             local_hash_eq
-        >(*this, k, hashed, M_buckets);
+        >({M_file, M_buckets}, k, hashed, M_buckets);
 
         if (!res.second)
         {
@@ -1214,7 +1252,7 @@ public:
         std::allocator_traits<allocator>::construct
         (
             M_alloc,
-            std::addressof(_block(res.first)),
+            M_file + res.first,
             false,
             hashed,
             std::make_pair(std::move(k), std::forward<Args>(args)...)
@@ -1259,34 +1297,31 @@ public:
     {
         struct local_deconstruct
         {
-            void operator()(unordered_map_file& cont, size_type curr)
+            void operator()(std::pair<element*, size_type> pair, size_type curr)
             {
-                /*  NOTE: this is wrong, we dont deconstruct the block,
-                          deconstuct the value_type ONLY
-                */
                 using alloc = std::allocator<value_type>;
                 alloc a;
                 std::allocator_traits<alloc>::destroy
                 (
                     a,
-                    std::addressof(cont.obtain_value_type(curr))
+                    std::addressof(TESTING_STRUCT(pair).value_type(curr))
                 );
             }
         };
 
         auto res = open_address_erase_index<
-            decltype(*this),
+            std::pair<element*, size_type>,
             key_type, size_type,
             is_free, hash_comp, key_comp<key_type>, Elem_Move_Test,
             local_hash_eq, local_deconstruct>
-        (*this, k, Hash()(k), M_buckets);
+        ({M_file, M_buckets}, k, Hash()(k), M_buckets);
 
         if (res == M_buckets)
         {
             return 0;
         }
 
-        _is_free(res) = true;
+        TESTING_STRUCT(M_file).free(res) = true;
         --M_elem;
 
         return 1;
@@ -1309,7 +1344,7 @@ public:
     {
         for (size_type index = 0; index != M_buckets; ++index)
         {
-            _is_free(index) = true;
+            TESTING_STRUCT(M_file).free(index) = true;
         }
 
         M_elem = 0;
@@ -1336,7 +1371,7 @@ public:
     size_type
     bucket_size(size_type index) const
     {
-        return !is_free()(*this, index);
+        return !is_free()(M_file, index);
     }
 
     size_type

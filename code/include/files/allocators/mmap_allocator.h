@@ -1,5 +1,5 @@
-#ifndef CUSTOM_FILE_LIBRARY_ALLOCATOR
-#define CUSTOM_FILE_LIBRARY_ALLOCATOR
+#ifndef CUSTOM_FILE_LIBRARY_MMAP_ALLOCATOR
+#define CUSTOM_FILE_LIBRARY_MMAP_ALLOCATOR
 
 #include <cstddef>
 #include <fcntl.h>
@@ -208,7 +208,7 @@ public:
     /*  NOTE: destroy idea here is wrong 
     */
     int
-    destory()
+    destroy()
     {
         return ::remove(M_file.c_str());
     }

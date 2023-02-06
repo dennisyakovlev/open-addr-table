@@ -45,21 +45,21 @@ struct _size_struct<void>
 
 template<typename... Args>
 constexpr std::size_t
-Length()
+length()
 {
     return _size_struct<Args..., void>::_s();
 }
 
 template<std::size_t A, std::size_t B>
 constexpr std::size_t
-Min()
+min()
 {
     return A < B ? A : B;
 }
 
 template<std::size_t A, std::size_t B>
 constexpr std::size_t
-Max()
+max()
 {
     return A < B ? B : A;
 }
@@ -185,7 +185,7 @@ struct _loop
     template
     <
         typename... Args1, typename... Args2,
-        typename std::enable_if<Length<Args1...>() - I != 0 && Length<Args2...>() - I != 0, bool>::type = true
+        typename std::enable_if<length<Args1...>() - I != 0 && length<Args2...>() - I != 0, bool>::type = true
     >
     static bool
     _less(const block<Args1...>& l, const block<Args2...>& r)
@@ -202,7 +202,7 @@ struct _loop
     template
     <
         typename... Args1, typename... Args2,
-        typename std::enable_if<Length<Args1...>() - I == 0, bool>::type = true
+        typename std::enable_if<length<Args1...>() - I == 0, bool>::type = true
     >
     static bool
     _less(const block<Args1...>& l, const block<Args2...>& r)
@@ -216,7 +216,7 @@ struct _loop
     template
     <
         typename... Args1, typename... Args2,
-        typename std::enable_if<Length<Args2...>() - I == 0, bool>::type = true
+        typename std::enable_if<length<Args2...>() - I == 0, bool>::type = true
     >
     static bool
     _less(const block<Args1...>& l, const block<Args2...>& r)
@@ -297,7 +297,7 @@ template<typename... Args>
 constexpr std::size_t
 SizeofTotal()
 {
-    return _loop<Length<Args...>()>
+    return _loop<length<Args...>()>
         ::template _sum_to<Args...>();
 }
 
@@ -317,7 +317,7 @@ struct block
 
     block()
     {
-        _loop<Length<Vals...>()>::_init(*this);
+        _loop<length<Vals...>()>::_init(*this);
     }
 
     template
@@ -325,13 +325,13 @@ struct block
         typename... Args,
         typename std::enable_if
         <
-            Length<Vals...>() == Length<Args...>(),
+            length<Vals...>() == length<Args...>(),
             bool
         >::type = 0
     >
     block(const block<Args...>& other)
     {
-        _loop<Length<Vals...>()>::_init(*this, other);
+        _loop<length<Vals...>()>::_init(*this, other);
     }
 
     template
@@ -339,13 +339,13 @@ struct block
         typename... Args,
         typename std::enable_if
         <
-            Length<Vals...>() == Length<Args...>(),
+            length<Vals...>() == length<Args...>(),
             bool
         >::type = 0
     >
     block(block<Args...>&& other)
     {
-        _loop<Length<Vals...>()>::_init(*this, std::move(other));
+        _loop<length<Vals...>()>::_init(*this, std::move(other));
     }
 
     /**
@@ -359,12 +359,12 @@ struct block
         typename... Args,
         typename std::enable_if
         <
-            Length<Vals...>() == Length<Args...>(),
+            length<Vals...>() == length<Args...>(),
             bool
         >::type = 0,
         typename std::enable_if
         <
-            _loop<Min<Length<Args...>(), Length<Vals...>()>()>
+            _loop<min<length<Args...>(), length<Vals...>()>()>
             ::template _convertible<Args...>
             ::template _f<Vals...>(),
             bool
@@ -372,7 +372,7 @@ struct block
     >
     block(Args&&... vals)
     {
-        _loop<Length<Vals...>()>::_init(*this, std::forward<Args>(vals)...);
+        _loop<length<Vals...>()>::_init(*this, std::forward<Args>(vals)...);
 
     }
 
@@ -427,10 +427,10 @@ template<typename... Args1, typename... Args2>
 bool
 operator==(const block<Args1...>& l, const block<Args2...>& r)
 {
-    constexpr auto sz_l = Length<Args1...>(); 
-    constexpr auto sz_r = Length<Args2...>(); 
+    constexpr auto sz_l = length<Args1...>(); 
+    constexpr auto sz_r = length<Args2...>(); 
     return sz_l == sz_r
-        && _loop<Min<sz_l, sz_r>()>::_eq(l, r);
+        && _loop<min<sz_l, sz_r>()>::_eq(l, r);
 }
 
 template<typename... Args1, typename... Args2>
@@ -444,7 +444,7 @@ template<typename... Args1, typename... Args2>
 bool
 operator<(const block<Args1...>& l, const block<Args2...>& r)
 {
-    return _loop<Max<Length<Args1...>(), Length<Args2...>()>()>::_less(l, r);
+    return _loop<max<length<Args1...>(), length<Args2...>()>()>::_less(l, r);
 }
 
 template<typename... Args1, typename... Args2>

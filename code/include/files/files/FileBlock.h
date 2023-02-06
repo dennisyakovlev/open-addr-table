@@ -66,9 +66,26 @@ Max()
 
 
 
+/**
+ * @brief A fixed size structure to represent arbitrary types
+ *        stored in contiguous memory.
+ * 
+ * @tparam Key    Key type.
+ * @tparam Values Value types.
+ * 
+ * @note Values types must meet requirements of std::tuple elements.
+ */
 template<typename... Values>
 struct block;
 
+/**
+ * @brief Get the I'th zero-indexed element out of a block.
+ * 
+ * @tparam I 
+ * @tparam Args 
+ * @param fb 
+ * @return const _type<I, Args...>::Elem& 
+ */
 template<std::size_t I, typename... Args>
 const typename _type<I, Args...>::Elem&
 get(const block<Args...>& fb);
@@ -77,15 +94,28 @@ template<std::size_t I, typename... Args>
 typename _type<I, Args...>::Elem&
 get(block<Args...>& fb);
 
-template<std::size_t I, typename Arg, typename... Args>
+/**
+ * @brief Set the I'th zero-indexed element in fb to values
+ *        of arg.
+ * 
+ * @tparam I 
+ * @tparam Arg 
+ * @tparam Args 
+ * @param fb 
+ * @param arg 
+ */
+template<std::size_t I, typename... Args, typename... Params>
 void
-set(block<Args...>& fb, Arg&& arg);
+set(block<Args...>& fb, Params&&... params);
 
 
 
 /**
  * @brief Recursive struct which unrolls equal to a
  *        loop going from 0-indexed [I,End).
+ * 
+ * @tparam End one past ending index
+ * @tparam I starting index
  */
 template<std::size_t End, std::size_t I = 0>
 struct _loop
@@ -97,6 +127,14 @@ struct _loop
      *        be SIZE_MAX, ie max index is SIZE_MAX - 1.
      */
     static_assert(!(I == SIZE_MAX), "Cannot have empty block");
+
+    template<typename... Orig>
+    static void
+    _init(block<Orig...>& fb)
+    {
+        set<I>(fb);
+        _loop<End, I + 1>::_init(fb);
+    }
 
     template<typename... Orig, typename Arg, typename... Args>
     static void
@@ -112,6 +150,14 @@ struct _loop
     {
         set<I>(into, get<I>(from));
         _loop<End, I + 1>::_init(into, from);
+    }
+
+    template<typename... Args1, typename... Args2>
+    static void
+    _init(block<Args1...>& into, block<Args1...>&& from)
+    {
+        set<I>(into, std::move(get<I>(from)));
+        _loop<End, I + 1>::_init(into, std::move(from));
     }
 
     template<typename Arg, typename... Args>
@@ -189,7 +235,7 @@ struct _loop
 };
 
 /**
- * @brief Base case.
+ * @brief End of loop (base case)
  */
 template<std::size_t I>
 struct _loop<I, I>
@@ -203,6 +249,12 @@ struct _loop<I, I>
     static constexpr void
     _init(block<Args1...>& into, const block<Args1...>& from)
     {}
+
+    template<typename... Args1, typename... Args2>
+    static void
+    _init(block<Args1...>& into, block<Args1...>&& from)
+    {
+    }
 
     template<typename... Args>
     static constexpr std::size_t
@@ -256,59 +308,45 @@ SizeofPartial()
     return _loop<I>
         ::template _sum_to<Args...>();
 }
-template<typename... Orig, typename... Args>
-constexpr void
-Unroll(block<Orig...>& fb, Args&&... args)
-{
-    _loop<Length<Orig...>()>::_init(fb, std::forward<Args>(args)...);
-}
 
-template<typename... Args1, typename... Args2>
-constexpr void
-CopyUnroll(block<Args1...>& into, const block<Args2...>& from)
-{
-    _loop<Length<Args1...>()>::_init(into, from);
-}
-
-/*  NOTE: should all the elements have trivial destructors ?
-*/
-
-/*  NOTE: define destructor
-*/
-
-/**
- * @brief A fixed size structure to represent arbitrary types
- *        stored in contiguous memory.
- * 
- * @tparam Key    Key type.
- * @tparam Values Value types.
- * 
- * @note Values types must meet requirements of std::tuple elements.
- */
 template<typename... Vals>
 struct block
 {
 
     using size_type = std::size_t;
 
-    /*  NOTE: default is not actually default, as in object wont be default initialzed here as M_data will just be given
-              random values
-
-              should they be?
-    */
     block()
     {
-        
+        _loop<Length<Vals...>()>::_init(*this);
     }
 
-    template<typename... Args>
+    template
+    <
+        typename... Args,
+        typename std::enable_if
+        <
+            Length<Vals...>() == Length<Args...>(),
+            bool
+        >::type = 0
+    >
     block(const block<Args...>& other)
     {
-        CopyUnroll(*this, other);
+        _loop<Length<Vals...>()>::_init(*this, other);
     }
-    
-    /* NOTE: this allows diff sizes? okay
-    */
+
+    template
+    <
+        typename... Args,
+        typename std::enable_if
+        <
+            Length<Vals...>() == Length<Args...>(),
+            bool
+        >::type = 0
+    >
+    block(block<Args...>&& other)
+    {
+        _loop<Length<Vals...>()>::_init(*this, std::move(other));
+    }
 
     /**
      * @brief Constrained forwarding. This constructor will
@@ -319,27 +357,34 @@ struct block
     template
     <
         typename... Args,
-        typename = typename std::enable_if
+        typename std::enable_if
+        <
+            Length<Vals...>() == Length<Args...>(),
+            bool
+        >::type = 0,
+        typename std::enable_if
         <
             _loop<Min<Length<Args...>(), Length<Vals...>()>()>
             ::template _convertible<Args...>
-            ::template _f<Vals...>()
-        >::type
+            ::template _f<Vals...>(),
+            bool
+        >::type = 0
     >
     block(Args&&... vals)
     {
-        Unroll(*this, std::forward<Args>(vals)...);
+        _loop<Length<Vals...>()>::_init(*this, std::forward<Args>(vals)...);
+
     }
 
+    /*  NOTE: this is *extra* memory, no ?
+
+        perhaps we can just use a pointer given to us as the initailizer then
+        just get from there
+    */
     char M_data[SizeofTotal<Vals...>()];
+
 };
 
-/**
- * @brief Get the I'th zero-indexed element out of Values.
- * 
- * @tparam I Index to get.
- * @return ElementType<I, fb>& Element.
- */
 template<std::size_t I, typename... Args>
 const typename _type<I, Args...>::Elem&
 get(const block<Args...>& fb)
@@ -360,23 +405,13 @@ get(block<Args...>& fb)
     );
 }
 
-/**
- * @brief Get the I'th zero-indexed element out of Values.
- * 
- * @tparam I Index to get.
- * @return ElementType<I, fb>& Element.
- */
-template<std::size_t I, typename Arg, typename... Args>
+template<std::size_t I, typename... Args, typename... Params>
 void
-set(block<Args...>& fb, Arg&& arg)
+set(block<Args...>& fb, Params&&... params)
 {
-    // NOTE: should remove cv here ???
-    //       Arg is forward ref so should not have ref ty
-    //       we wont have const on Arg (we cannot)
-
-    // ah we dont want to use Arg, we must use the final type
-    //  ie use ElemType
-
+    /*  NOTE: this is where we'll stick the UB, into
+              the reinterpret cast
+    */
     using ty = typename _type<I, Args...>::Elem;
     using alloc = std::allocator<ty>;
     alloc a;
@@ -384,7 +419,7 @@ set(block<Args...>& fb, Arg&& arg)
     (
         a,
         reinterpret_cast<ty*>(fb.M_data + SizeofPartial<I, Args...>()),
-        std::forward<Arg>(arg)
+        std::forward<Params>(params)...
     );
 }
 

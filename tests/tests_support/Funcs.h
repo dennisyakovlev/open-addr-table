@@ -8,16 +8,6 @@
 
 #include <gtest/gtest.h>
 
-/**
- * @brief Remove file or directory and all contents.
- * 
- * @param path path to remove
- * @return int 0 for success, non-zero on failure
- */
-int
-RemoveRecursive(const char* path);
-
-
 template<
     typename Cont,
     typename ContIn = std::initializer_list<std::size_t>>
@@ -40,11 +30,34 @@ all_permutations(ContIn lis)
  *        set of all permuations of possible removal order
  *        from lis. lis will be inserted in the order it is
  *        given.
+ *  
+ * @example to illustrate use
+ *              buckets=10
+ *              lis=[6,7,8]
+ *          would get a result of the form
+ *              {
+ *                  [6,7,8],
+ *                  {
+ *                     [0,1,2], 
+ *                     [0,2,1], 
+ *                     [1,0,2], 
+ *                     [1,2,0], 
+ *                     [2,1,0], 
+ *                     [2,0,1]
+ *                  },
+ *                  [10]
+ *              }
  * 
- * @param buckets the number of buckets the file container
- *                should reserve
- * @param lis unique hashes to insert
- * @return auto some form of gtest object
+ * @tparam Cont final container type to use. semantics and
+ *              usage should be similar to an array. Cont
+ *              must be initializable by ContIn
+ * @tparam ContIn parameter container type. semantics and
+ *                usage should be similar to an array
+ * @param buckets numbers of buckets. this has no effect on
+ *                the permutations
+ * @param lis data to permutate. every element must be
+ *            unique
+ * @return 
  */
 template<
     typename Cont,
@@ -62,7 +75,7 @@ permutated_insertions(std::size_t buckets, ContIn lis)
     std::iota(range.begin(), range.end(), 0);
 
     return testing::Combine(
-        testing::ValuesIn(std::vector<Cont>{lis}),
+        testing::ValuesIn(std::vector<Cont>({lis})),
         testing::ValuesIn(all_permutations<Cont>(range)),
         testing::ValuesIn(std::vector<Cont>{{buckets}})
     );

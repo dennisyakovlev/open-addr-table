@@ -1,6 +1,5 @@
 set(lib_sources
     CustomString.h
-    Funcs.cpp
     Funcs.h
     SpecialHash.cpp
     SpecialHash.h

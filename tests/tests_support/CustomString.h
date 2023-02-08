@@ -1,12 +1,15 @@
 #ifndef CUSTOM_TESTS_CUSTOMSTRING
 #define CUSTOM_TESTS_CUSTOMSTRING
 
-#include <algorithm>
 #include <cstddef>
 #include <string>
 #include <string.h>
-#include <iostream>
 
+/**
+ * @brief Wrapper around null terminated C-style strings. 
+ * 
+ * @tparam sz length of string including null terminator
+ */
 template<std::size_t sz>
 struct MyString
 {
@@ -106,6 +109,14 @@ struct std::hash<MyString<sz>>
     }
 };
 
+/**
+ * @brief A special hash function to cause collisions.
+ *        Used to force strings which would normally
+ *        have different hashes to have same hash value. 
+ * 
+ * @tparam sz size of string
+ * @tparam hash the hash value to return
+ */
 template<std::size_t sz, std::size_t hash>
 struct collison
 {

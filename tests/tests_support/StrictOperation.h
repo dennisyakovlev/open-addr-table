@@ -37,8 +37,8 @@ protected:
     hashes            vec;
     std::vector<bool> rel;
 
-    StrictOperation(Cont&& c)
-        : cont(std::move(c))
+    StrictOperation(Cont&& c) :
+        cont(std::move(c))
     {
         reset_gen();
     }

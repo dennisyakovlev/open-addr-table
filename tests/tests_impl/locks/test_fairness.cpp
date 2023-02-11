@@ -1,53 +1,71 @@
-#include <atomic>
-#include <iostream>
-#include <stddef.h>
+#include <cstddef>
 #include <pthread.h>
-#include <stdio.h>
-#include <vector>
 
 #include <gtest/gtest.h>
 
 #include <tests_support/Vars.h>
+#include <tests_support/thread_manager.h>
 #include <files/locks.h>
 
-std::size_t           total;
-MmapFiles::queue_lock lock;
-std::atomic<bool>     thread_begin;
+using namespace MmapFiles;
 
+template<typename Lock>
 void*
-func_starve(void* _)
+func_nice(void* arg)
 {
-    while (thread_begin.load());
+    thread_arg<Lock>* typed_arg = static_cast<thread_arg<Lock>*>(arg);
 
-    for (int i = 0; i != TESTS_NUM_ITERATS; ++i)
+    while (!typed_arg->begin.load());
+
+    /*  NOTE: shouldn't time *also* be a specific value ?
+                TESTS_NUM_ITERATS / mod should equal times (with some uh floor ceil thing)
+    */
+
+    /**
+     * @brief the number of times this function successfully
+     *        obtained the lock
+     * 
+     */
+    std::size_t times     = 0;
+    /**
+     * @brief the total current "lag" of this function.
+     * 
+     *        Define lag as the number of "units" from right before the
+     *        lock is obtained to right after. one "unit" is one increment
+     *        of "total".
+     * 
+     *        The idea is if the lock is truely fair then lag will be less
+     *        then the number of threads everytime the lock is obtained
+     * 
+     */
+    std::size_t lag       = 0;
+    /**
+     * @brief the previous total while the lock was held
+     * 
+     */
+    std::size_t old_total = 0;
+    /**
+     * @brief how often this function should attempt to obtain the lock. can
+     *        play around withthis value, anything over 1 is valid but a
+     *        good choice is something that force the lock to be obtained
+     *        a "decent" amount
+     * 
+     */
+    std::size_t mod       = 25;
+
+    while (typed_arg->total < TESTS_NUM_ITERATS * (TESTS_NUM_THREADS - 1))
     {
-        lock.lock();
-        ++total;
-        lock.unlock();
-    }
-
-    return nullptr;
-}
-
-void*
-func_nice(void* _)
-{
-    while (thread_begin.load());
-
-    std::size_t times = 0, lag = 0, old_total = 0, mod = 500;
-    while (total < TESTS_NUM_ITERATS * (TESTS_NUM_THREADS - 1))
-    {
-        std::size_t temp = total;
+        std::size_t temp = typed_arg->total;
         if (temp % mod == 0 && temp > old_total)
         {
-            old_total = total;
-            lock.lock();
+            old_total = typed_arg->total;
+            typed_arg->lock.lock();
 
             /*  How long its been between pre lock and after lock. There
                 is some margin for error as above two lines are not
                 atomic, but error is quite small.
             */
-            long curr_lag = total - old_total;
+            long curr_lag = typed_arg->total - old_total;
 
             /*  At most (TESTS_NUM_THREADS - 1) starve threads will
                 be scheduled at the same  time. There can be atmost
@@ -58,11 +76,11 @@ func_nice(void* _)
             */
             if (curr_lag > TESTS_NUM_THREADS)
             {
-                lag += curr_lag;
+                lag += curr_lag - TESTS_NUM_THREADS;
             }
             ++times;
 
-            lock.unlock();
+            typed_arg->lock.unlock();
         }
     }
 
@@ -75,46 +93,50 @@ func_nice(void* _)
         observe difference.
     */
     double* average_lag = new double(static_cast<double>(lag) / times);
-    return average_lag;
+    pthread_exit(average_lag);
 }
 
-TEST(QueueFairness, Test)
+template<typename Lock>
+class QueueFairnessTest :
+    public testing::Test,
+    public thread_manager<Lock>
 {
-    std::vector<pthread_t> threads(TESTS_NUM_THREADS);
-    for (int i = 0; i != TESTS_NUM_THREADS - 1; ++i)
+protected:
+
+    QueueFairnessTest() :
+        thread_manager<Lock>(TESTS_NUM_THREADS - 1, TESTS_NUM_ITERATS)
     {
-        if (pthread_create(&threads[i], NULL, func_starve, NULL))
-        {
-            perror("create");
-            ASSERT_TRUE(false);
-        }
-    }
-    if (pthread_create(&threads[TESTS_NUM_THREADS - 1], NULL, func_nice, NULL))
-    {
-        perror("create");
-        ASSERT_TRUE(false);
+        M_tid = this->add_thread(func_nice<Lock>, &this->arg());
     }
 
-    thread_begin.store(false);
+    double
+    lag()
+    {
+        return this->template return_val<double>(this->M_tid);
+    }
 
-    for (int i = 0; i != TESTS_NUM_THREADS - 1; ++i)
-    {
-        if (pthread_join(threads[i], NULL))
-        {
-            perror("join");
-            ASSERT_TRUE(false);
-        }
-    }
-    double* average_lag;
-    if (pthread_join(threads.back(), reinterpret_cast<void**>(&average_lag)))
-    {
-        perror("join");
-        ASSERT_TRUE(false);
-    }
+    pthread_t M_tid;
+
+};
+
+using MyTypes = testing::Types<
+    queue_lock<backoff_none>,
+    queue_lock<backoff_userspace>,
+    queue_lock<backoff_futex>
+>;
+TYPED_TEST_CASE(QueueFairnessTest, MyTypes);
+
+TYPED_TEST(QueueFairnessTest, Fairness)
+{
+    this->start();
+    this->wait();
 
     /*  If the average lag is grater than 0.01 then from 100 requests,
         on average, the lock was obtained later than 1 increment of
         "total". Which isn't exactly "fair".
     */
-    ASSERT_LT(*average_lag, 0.01);
+    ASSERT_LT(this->lag(), 0.01);
+
+    ASSERT_TRUE(this->state())
+        << "test was in invalid state, some error occured";
 }

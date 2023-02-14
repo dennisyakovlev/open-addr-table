@@ -245,6 +245,12 @@ public:
         );
     }
 
+    const Arg&
+    arg()
+    {
+        return M_arg;
+    }
+
 private:
 
     /**

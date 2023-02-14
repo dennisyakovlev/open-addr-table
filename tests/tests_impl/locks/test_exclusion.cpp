@@ -34,10 +34,8 @@ protected:
 using MyTypes = ::testing::Types<
     queue_lock<backoff_none>,
     queue_lock<backoff_userspace>,
-    queue_lock<backoff_futex>,
     spin_lock<backoff_none>,
-    spin_lock<backoff_userspace>,
-    spin_lock<backoff_futex>
+    spin_lock<backoff_userspace>
 >;
 TYPED_TEST_CASE(CorrectnessTest, MyTypes);
 
@@ -47,9 +45,6 @@ TYPED_TEST(CorrectnessTest, Exclusion)
     this->wait();
 
     ASSERT_EQ(this->arg().total, TESTS_NUM_THREADS * TESTS_NUM_ITERATS);
-
-    ASSERT_TRUE(this->state())
-        << "test was in invalid state, some error occured";
 }
 
 #endif

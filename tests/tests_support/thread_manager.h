@@ -2,11 +2,14 @@
 #define CUSTOM_TESTS_THREADMANAGER
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <cstddef>
+#include <cstring>
+#include <memory>
 #include <pthread.h>
+#include <string>
 #include <utility>
-#include <vector>
 
 /**
  * @brief Type which contains necessary information for tests
@@ -17,6 +20,17 @@
 template<typename Lock>
 struct thread_arg
 {
+
+    thread_arg() = delete;
+
+    thread_arg(std::size_t iterations) :
+        lock(),
+        total(0),
+        num_iterations(iterations),
+        begin(false),
+        dead(0)
+    {
+    }
 
     /**
      * @brief lock to use
@@ -44,6 +58,15 @@ struct thread_arg
      */
     std::atomic<bool> begin;
 
+    /**
+     * @brief number of threads which are not executing at 
+     *        the current moment
+     * 
+     *        every thread has an obligation to decrement
+     *        dead just before it exists
+     */
+    std::atomic<std::size_t> dead;
+
 };
 
 /**
@@ -66,10 +89,13 @@ thread_increment(void* arg)
     for (std::size_t i = 0; i != typed_arg->num_iterations; ++i)
     {
         typed_arg->lock.lock();
-        ++(typed_arg->total);
+
+        ++typed_arg->total;
+        
         typed_arg->lock.unlock();
     }
 
+    --typed_arg->dead;
     pthread_exit(nullptr);
 }
 
@@ -79,7 +105,7 @@ thread_increment(void* arg)
  * 
  * @tparam Lock lock type
  */
-template<typename Lock>
+template<typename Lock, typename Arg = thread_arg<Lock>>
 class thread_manager
 {
 public:
@@ -94,15 +120,23 @@ public:
      *                  inside the default function
      */
     thread_manager(std::size_t num, std::size_t iterations) :
-        M_okay(true)
+        M_thread_num(0),
+        M_arg(iterations)
     {
-        M_arg.total          = 0;
-        M_arg.num_iterations = iterations;
-        M_arg.begin          = false;
-
         for (std::size_t i = 0; i != num; ++i)
         {
-            add_thread(thread_increment<Lock>, &M_arg);
+            add_thread(thread_increment<Lock>);
+        }
+    }
+
+    template<typename... Args>
+    thread_manager(std::size_t num, Args... args) :
+        M_thread_num(0),
+        M_arg(std::forward<Args>(args)...)
+    {
+        for (std::size_t i = 0; i != num; ++i)
+        {
+            add_thread(thread_increment<Lock>);
         }
     }
 
@@ -117,18 +151,44 @@ public:
      * @param arg arguement to pass to function
      * @return pthread_t unique thread id
      */
-    template<typename Arg>
+    template<typename FuncArg>
     pthread_t
-    add_thread(void* (*start_routine)(void*), Arg arg)
+    add_thread(void* (*start_routine)(void*), FuncArg arg)
     {
-        M_threads.push_back({0,nullptr});
-        if (pthread_create(&M_threads.back().first, NULL, start_routine, static_cast<void*>(arg)))
+        if (M_thread_num == M_threads.size())
         {
-            perror("\n\nthread create\n\n");
-            M_okay = false;
+            throw std::system_error(
+                -1,
+                std::generic_category(),
+                "Ran out of room for threads"
+            );
+
+            return 0;
         }
 
-        return M_threads.back().first;
+        if (pthread_create(&M_threads[M_thread_num].first, NULL, start_routine, static_cast<void*>(arg)))
+        {
+            --M_arg.dead;
+            
+            throw std::system_error(
+                -1,
+                std::generic_category(),
+                std::string("bad pthread create") + strerror(errno)
+            );
+
+            return 0;
+        }
+
+        ++M_arg.dead;
+        ++M_thread_num;
+
+        return M_threads[M_thread_num - 1].first;
+    }
+
+    pthread_t
+    add_thread(void* (*start_routine)(void*))
+    {
+        return add_thread(start_routine, &M_arg);
     }
 
     /**
@@ -138,7 +198,7 @@ public:
     void
     start()
     {
-        M_arg.begin.store(true);    
+        M_arg.begin.store(true);
     }
 
     /**
@@ -148,26 +208,17 @@ public:
     void
     wait()
     {
-        for (std::size_t i = 0; i != M_threads.size(); ++i)
+        for (std::size_t i = 0; i != M_thread_num; ++i)
         {
-            if (pthread_join(M_threads[i].first, &(M_threads[i].second)))
+            if (pthread_join(M_threads[i].first, &M_threads[i].second))
             {
-                perror("\n\njoin\n\n");
-                M_okay = false;
+                throw std::system_error(
+                    -1,
+                    std::generic_category(),
+                    std::string("bad join pthread: ") + strerror(errno)
+                );
             }
         }
-    }
-
-    /**
-     * @brief Get the parameter which is passed to the default
-     *        function.
-     * 
-     * @return thread_arg<Lock>& 
-     */
-    thread_arg<Lock>&
-    arg()
-    {
-        return M_arg;
     }
 
     /**
@@ -184,30 +235,28 @@ public:
     T&
     return_val(pthread_t id)
     {
-        return *static_cast<T*>(std::find_if(M_threads.cbegin(), M_threads.cend(), [=](const auto& pair) {
-            return pair.first == id;
-        })->second);
+        return *static_cast<T*>
+        (
+            std::find_if(M_threads.cbegin(), M_threads.cend(),
+            [=](const std::pair<pthread_t, void*>& pair)
+            {
+                return pair.first == id;
+            })->second
+        );
     }
+
+private:
 
     /**
-     * @brief Determine whether the current objects state is
-     *        valid. Is invalidated upon error.
-     *        Should use this func at end of test to make sure
-     *        the test results have meaning.
+     * @brief This cannot be reallocated... something internal to
+     *        pthreds demands the pointer given to pthread_create
+     *        remains valid.
      * 
-     * @return true valid 
-     * @return false invalid
      */
-    bool
-    state()
-    {
-        return M_okay;
-    }
-
-    thread_arg<Lock> M_arg;
-    std::vector<std::pair<pthread_t, void*>>
-                     M_threads;
-    bool             M_okay;
+    std::array<std::pair<pthread_t, void*>, 256>
+                M_threads;
+    std::size_t M_thread_num;
+    Arg         M_arg;
 
 };
 

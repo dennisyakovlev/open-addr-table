@@ -3,11 +3,11 @@
 #include <gtest/gtest.h>
 
 #include <files/Files.h>
-#include <tests_support/SpecialIntegral.h>
 
 using namespace MmapFiles;
+
 /*  In most implementations (including this one), the only
-    operators which contains implementation are == and
+    operators which contain implementation are == and
     either of < or >. The other operators are derived from
     those two. Will only test two assuming the others are
     trivial and correct.

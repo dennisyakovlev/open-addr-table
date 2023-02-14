@@ -13,7 +13,8 @@ using MmapFiles::unordered_map_lru;
 using std::string;
 
 template<typename Cont>
-class UnorderedMapLruTest : public ::testing::Test
+class UnorderedMapLruTest :
+    public ::testing::Test
 {
 protected:
 

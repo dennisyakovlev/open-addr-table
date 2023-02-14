@@ -73,7 +73,7 @@ using MyTypes = testing::Types
     MmapFiles::unordered_map_file<MyString<953>, long, collison<953, std::numeric_limits<std::size_t>::max()>>,
     MmapFiles::unordered_map_file<std::string, long>
 >;
-TYPED_TEST_CASE(UnorderedMapReqTest, MyTypes);
+TYPED_TEST_SUITE(UnorderedMapReqTest, MyTypes);
 
 TYPED_TEST(UnorderedMapReqTest, Insert)
 {

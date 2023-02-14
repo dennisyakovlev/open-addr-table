@@ -40,7 +40,7 @@ using MyTypes = testing::Types
     unordered_map_lru<MyString<67>, short, collison<67, 0>>,
     unordered_map_lru<MyString<93>, unsigned long, collison<93, 7>>
 >;
-TYPED_TEST_CASE(UnorderedMapLruTest, MyTypes);
+TYPED_TEST_SUITE(UnorderedMapLruTest, MyTypes);
 
 TYPED_TEST(UnorderedMapLruTest, InsertPopsLeastRecent)
 {

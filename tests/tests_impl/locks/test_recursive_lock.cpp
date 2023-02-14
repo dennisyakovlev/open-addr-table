@@ -19,7 +19,7 @@ using MyTypes = ::testing::Types
     spin_lock<backoff_none>,
     spin_lock<backoff_userspace>
 >;
-TYPED_TEST_CASE(RecursiveLockTest, MyTypes);
+TYPED_TEST_SUITE(RecursiveLockTest, MyTypes);
 
 TYPED_TEST(RecursiveLockTest, Unlock)
 {

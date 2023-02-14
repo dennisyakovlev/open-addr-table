@@ -37,7 +37,7 @@ using MyTypes = ::testing::Types<
     spin_lock<backoff_none>,
     spin_lock<backoff_userspace>
 >;
-TYPED_TEST_CASE(CorrectnessTest, MyTypes);
+TYPED_TEST_SUITE(CorrectnessTest, MyTypes);
 
 TYPED_TEST(CorrectnessTest, Exclusion)
 {

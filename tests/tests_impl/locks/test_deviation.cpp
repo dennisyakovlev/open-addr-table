@@ -30,10 +30,6 @@ struct deviation_arg :
     {
     }
 
-    /**
-     * @brief 
-     * 
-     */
     std::atomic<std::size_t> atomic_total;
 
 };
@@ -92,20 +88,6 @@ protected:
 
 };
 
-/*  So fore SOME reason, no idea why but having more than one type skews results.
-
-    We need to somehow have MyTyped be a single type each time. This is impossible
-    unless we screw with gtest internals.
-
-    So what can do is in one file (Vars.h) can have a "MyTypes" which takes from
-    a tuple depending on a macro for which element to take. Macro would be given
-    when building.
-
-    Okay but how does builder know what to set macro to? Can run a program which
-    give a number which says macros should have values [0,n), then builder
-    can build by setting macro in a build loop or sum.
-*/
-
 using MyTypes = testing::Types<
     queue_lock<backoff_none>,
     queue_lock<backoff_userspace>
@@ -123,9 +105,13 @@ TYPED_TEST(QueueDeviationTest, Deviation)
         total += this->off_by(tid);
     }
 
-    /*  If total is greater than 0.01, then the number of times each thread
-        obtained the lock relative to each other is greater than a 1% difference.
+    /*  If total "off_by" is greater than 1% of total number of times locked was
+        locked, then the number of times each thread obtained the lock relative
+        to each other is greater than a 1% difference.
+
+        Realistically should use around [0.001,0.005], which is 0.1% to 0.5%
+        difference.
+        But as noted in this folders README, don't do that.
     */
     ASSERT_LE(total, 0.01 * (TESTS_NUM_ITERATS * TESTS_NUM_THREADS));
-
 }

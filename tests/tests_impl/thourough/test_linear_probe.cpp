@@ -3,7 +3,6 @@
 #include <gtest/gtest.h>
 
 #include <files/Files.h>
-#include <tests_support/Funcs.h>
 #include <tests_support/SpecialHash.h>
 #include <tests_support/StrictOperation.h>
 #include <tests_support/Vars.h>
@@ -42,6 +41,8 @@ TEST_F(LinearProbeTest, InertFullNewHash)
         4 2
         5 
         6 6
+
+        after second insert
 
         0 6
         1 6

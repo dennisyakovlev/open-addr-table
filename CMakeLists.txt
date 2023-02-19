@@ -14,7 +14,7 @@ if(TESTING EQUAL 1)
 
     enable_testing()
 
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ggdb3 -O0 -Wall")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -Wall")
 
     set(build_tests BUILD_TESTS CACHE STRING "build test executable")
     set(tests TESTS CACHE STRING "testing exectuable")

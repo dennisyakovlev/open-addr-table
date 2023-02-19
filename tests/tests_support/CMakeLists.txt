@@ -1,10 +1,5 @@
 set(lib_sources
-    CustomString.h
-    Funcs.h
     SpecialHash.cpp
-    SpecialHash.h
-    StrictOperation.h
-    Vars.h
 )
 
 add_library(tests_support STATIC

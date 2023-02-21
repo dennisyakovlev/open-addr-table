@@ -31,7 +31,8 @@
 #include <tests_support/Vars.h>
 
 template<typename Cont>
-class UnorderedMapReqTest : public testing::Test
+class UnorderedMapReqTest :
+    public testing::Test
 {
 public:
 
@@ -67,11 +68,11 @@ using MyTypes = testing::Types
     MmapFiles::unordered_map_lru<std::string, int>,
     MmapFiles::unordered_map_lru<MyString<88>, long>,
     MmapFiles::unordered_map_lru<MyString<257>, long, collison<257, 28>>,
-    MmapFiles::unordered_map_file<MyString<128>, int>,
-    MmapFiles::unordered_map_file<MyString<156>, long>,
-    MmapFiles::unordered_map_file<MyString<67>, short, collison<67, 0>>,
-    MmapFiles::unordered_map_file<MyString<953>, long, collison<953, std::numeric_limits<std::size_t>::max()>>,
-    MmapFiles::unordered_map_file<std::string, long>
+    typename test_file_type<FAST_TESTS, MyString<128>, int>::file,
+    typename test_file_type<FAST_TESTS, MyString<156>, long>::file,
+    typename test_file_type<FAST_TESTS, MyString<67>, short, collison<67, 0>>::file,
+    typename test_file_type<FAST_TESTS, MyString<953>, long, collison<953, std::numeric_limits<std::size_t>::max()>>::file,
+    typename test_file_type<FAST_TESTS, std::string, long>::file
 >;
 TYPED_TEST_SUITE(UnorderedMapReqTest, MyTypes);
 

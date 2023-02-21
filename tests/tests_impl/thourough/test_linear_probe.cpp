@@ -7,7 +7,7 @@
 #include <tests_support/StrictOperation.h>
 #include <tests_support/Vars.h>
 
-using File = MmapFiles::unordered_map_file<SpecialHash,std::size_t>;
+using File = typename test_file_type<FAST_TESTS, SpecialHash, std::size_t>::file;
 
 class LinearProbeTest : 
     public testing::Test,

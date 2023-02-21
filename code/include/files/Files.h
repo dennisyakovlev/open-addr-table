@@ -1,9 +1,6 @@
-#ifndef CUSTOM_FILE_LIBRARY_LOCKS
-#define CUSTOM_FILE_LIBRARY_LOCKS
+#ifndef CUSTOM_FILE_LIBRARY_FILES
+#define CUSTOM_FILE_LIBRARY_FILES
 
-// #include "files/base_file.h"
-// #include "files/vector_file.h"
-// #include "files/TableFile.h"
 #include "files/FileBlock.h"
 #include "files/unordered_map_file.h"
 

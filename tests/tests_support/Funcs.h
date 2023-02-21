@@ -27,7 +27,7 @@ all_permutations(ContIn lis)
 
 /**
  * @brief Generate a type which gtest can use which is the
- *        set of all permuations of possible removal order
+ *        set of all permuations of possible order of indicies
  *        from lis. lis will be inserted in the order it is
  *        given.
  *  

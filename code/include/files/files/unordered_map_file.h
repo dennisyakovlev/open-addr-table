@@ -1045,8 +1045,9 @@ public:
         struct local_is_free
         {
             bool
-            operator()(const local_cont& cont, size_type curr) const
+            operator()(const local_cont* ptr, size_type curr) const
             {
+                const auto& cont = *ptr;
                 return cont[curr].second == nullptr;
             }
         };
@@ -1054,16 +1055,19 @@ public:
         struct local_hash_comp
         {
             size_type
-            operator()(const local_cont& cont, size_type curr, size_type against) const
+            operator()(const local_cont* ptr, size_type curr, size_type against) const
             {
-                if (!cont[curr].second)
+                const auto& cont         = *ptr;
+                const auto orig_elem_ptr = cont[curr].second;
+
+                if (!orig_elem_ptr || !cont[against].second)
                 {
                     return 2;
                 }
 
                 return hash_comp()(
                     {cont.back().second, cont.back().first},
-                    curr, against
+                    orig_elem_ptr - cont.back().second, cont[against].second - cont.back().second
                 );
             }
         };
@@ -1071,12 +1075,19 @@ public:
         struct local_key_comp
         {
             size_type
-            operator()(const local_cont& cont, size_type curr, const Key& k) const
+            operator()(const local_cont* ptr, size_type curr, const Key& k) const
             {
-                // Assume KeyComp does not compare against a nullptr.
+                const auto& cont         = *ptr;
+                const auto orig_elem_ptr = cont[curr].second;
+
+                if (!orig_elem_ptr)
+                {
+                    return false;
+                }
+
                 return key_comp<Key>()(
                     {cont.back().second, cont.back().first},
-                    curr, k
+                    orig_elem_ptr - cont.back().second, k
                 );
             }
         };
@@ -1084,8 +1095,9 @@ public:
         struct local_elem_transfer
         {
             void
-            operator()(local_cont& cont, size_type to, size_type from)
+            operator()(local_cont* ptr, size_type to, size_type from)
             {
+                auto& cont = *ptr;
                 const auto start = cont.back().second;
                 cont[cont[from].second - start].first = to;
 
@@ -1096,11 +1108,14 @@ public:
         struct bruh_hash_eq
         {
             size_type
-            operator()(const local_cont& cont, size_type curr, size_type num)
+            operator()(const local_cont* ptr, size_type curr, size_type num)
             {
+                const auto& cont = *ptr;
+                const auto orig_elem_ptr = cont[curr].second;
+
                 return local_hash_eq()(
                     {cont.back().second, cont.back().first},
-                    curr, num
+                    orig_elem_ptr - cont.back().second, num
                 );
             }
         };
@@ -1126,11 +1141,11 @@ public:
 
             TESTING_STRUCT temp(M_file);
             auto now_taken = open_address_emplace_index<
-                local_cont,
+                local_cont*,
                 Key, size_type,
                 local_is_free, local_hash_comp, local_key_comp, local_elem_transfer,
                 bruh_hash_eq
-            >(vec, temp.key(index), temp.hash(index), new_buckets).first;
+            >(std::addressof(vec), temp.key(index), temp.hash(index), new_buckets).first;
 
             vec[index].first      = now_taken;
             vec[now_taken].second = M_file + index;

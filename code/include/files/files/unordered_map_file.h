@@ -422,14 +422,20 @@ public:
             return M_ptr[index];
         }
 
-        size_type&
-        free(size_type index)
+        /**
+         * @brief set free state of index
+         *
+         * @param index
+         * @param free true for free, false otherwise
+         */
+        void
+        set_free(size_type index, bool free)
         {
-            return get<0>(block(index));
+            get<0>(block(index)) = free;
         }
 
-        size_type
-        free(size_type index) const
+        bool
+        is_free(size_type index) const
         {
             return get<0>(block(index));
         }
@@ -482,7 +488,7 @@ public:
         bool
         operator()(TESTING_STRUCT cont, size_type index) const
         {
-            return cont.free(index);
+            return cont.is_free(index);
         }
     };
 
@@ -673,7 +679,7 @@ private:
 
             for (; M_buckets != new_buckets; ++M_buckets)
             {
-                TESTING_STRUCT(M_file).free(M_buckets) = true;
+                TESTING_STRUCT(M_file).set_free(M_buckets, true);
             }
 
             return true;
@@ -1149,10 +1155,11 @@ public:
                     going_to = vec[going_to].first;
                 }
 
-                while (stack.size() > 1 )
+                while (stack.size() > 1)
                 {
                     auto end = stack.rbegin();
                     Elem_Move_Test()(M_file, *end, *(end + 1));
+                    TESTING_STRUCT(M_file).set_free(*(end + 1), true);
                     stack.pop_back();
                 }
                 stack.pop_back();
@@ -1323,7 +1330,7 @@ public:
             return 0;
         }
 
-        TESTING_STRUCT(M_file).free(res) = true;
+        TESTING_STRUCT(M_file).set_free(res, true);
         --M_elem;
 
         return 1;
@@ -1346,7 +1353,7 @@ public:
     {
         for (size_type index = 0; index != M_buckets; ++index)
         {
-            TESTING_STRUCT(M_file).free(index) = true;
+            TESTING_STRUCT(M_file).set_free(index, true);
         }
 
         M_elem = 0;

@@ -391,18 +391,20 @@ public:
 
         TESTING_STRUCT() = delete;
 
-        TESTING_STRUCT(element* ptr)
-            : M_ptr(ptr)
+        TESTING_STRUCT(element* ptr) :
+            M_ptr(ptr)
         {
         }
 
-        TESTING_STRUCT(element* ptr, size_type buckets)
-            : M_ptr(ptr), M_buckets(buckets)
+        TESTING_STRUCT(element* ptr, size_type buckets) :
+            M_ptr(ptr),
+            M_buckets(buckets)
         {
         }
 
-        TESTING_STRUCT(std::pair<element*, size_type> p)
-            : M_ptr(p.first), M_buckets(p.second)
+        TESTING_STRUCT(std::pair<element*, size_type> p) :
+            M_ptr(p.first),
+            M_buckets(p.second)
         {
         }
 
@@ -682,42 +684,42 @@ private:
 
 public:
 
-    unordered_map_file()
-        : M_name(_gen_random(16)),
-          M_buckets(0), M_elem(0),
-          M_alloc(M_name),
-          M_delete(false),
-          M_load(1)
+    unordered_map_file() :
+        M_name(_gen_random(16)),
+        M_buckets(0), M_elem(0),
+        M_alloc(M_name),
+        M_delete(false),
+        M_load(1)
     {
         reserve_choice(0, M_load, false);
     }
 
-    unordered_map_file(size_type buckets)
-        : M_name(_gen_random(16)),
-          M_buckets(0), M_elem(0),
-          M_alloc(M_name),
-          M_delete(false),
-          M_load(1)
+    unordered_map_file(size_type buckets) :
+        M_name(_gen_random(16)),
+        M_buckets(0), M_elem(0),
+        M_alloc(M_name),
+        M_delete(false),
+        M_load(1)
     {
         reserve_choice(buckets, M_load, false);
     }
 
-    unordered_map_file(std::string name)
-        : M_name(std::move(name)),
-          M_buckets(0), M_elem(0),
-          M_alloc(M_name),
-          M_delete(false),
-          M_load(1)
+    unordered_map_file(std::string name) :
+        M_name(std::move(name)),
+        M_buckets(0), M_elem(0),
+        M_alloc(M_name),
+        M_delete(false),
+        M_load(1)
     {
         reserve_choice(0, M_load, false);
     }
 
-    unordered_map_file(size_type buckets, std::string name)
-        : M_name(std::move(name)),
-          M_buckets(0), M_elem(0),
-          M_alloc(M_name),
-          M_delete(false),
-          M_load(1)
+    unordered_map_file(size_type buckets, std::string name) :
+        M_name(std::move(name)),
+        M_buckets(0), M_elem(0),
+        M_alloc(M_name),
+        M_delete(false),
+        M_load(1)
     {
         reserve_choice(next_size(buckets, M_load), false);
     }
@@ -732,12 +734,12 @@ public:
         size_type buckets,
         std::string name,
         std::initializer_list<size_type> choices = {}
-    )
-        : M_name(std::move(name)),
-          M_buckets(0), M_elem(0),
-          M_alloc(M_name),
-          M_delete(false),
-          M_load(1)
+    ) :
+        M_name(std::move(name)),
+        M_buckets(0), M_elem(0),
+        M_alloc(M_name),
+        M_delete(false),
+        M_load(1)
     {
         if (choices.size())
         {
@@ -747,13 +749,13 @@ public:
         reserve_choice(buckets, M_load, false);
     }
 
-    unordered_map_file(unordered_map_file&& rv)
-        : M_name(std::move(rv.M_name)),
-          M_buckets(rv.M_buckets), M_elem(rv.M_elem),
-          M_alloc(rv.M_alloc),
-          M_delete(rv.M_delete),
-          M_load(rv.M_load),
-          M_file(rv.M_file)
+    unordered_map_file(unordered_map_file&& rv) :
+        M_name(std::move(rv.M_name)),
+        M_buckets(rv.M_buckets), M_elem(rv.M_elem),
+        M_alloc(rv.M_alloc),
+        M_delete(rv.M_delete),
+        M_load(rv.M_load),
+        M_file(rv.M_file)
     {
         rv.M_file = nullptr;
     }

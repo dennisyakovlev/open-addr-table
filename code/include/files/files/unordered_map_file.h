@@ -111,7 +111,7 @@ template<
     typename IsFree, typename HashComp, typename KeyComp,
     typename HashEq>
 std::pair<Sz, bool>
-open_address_find(const Pointer cont, const Arg& k, Sz key_hash, Sz buckets)
+open_address_find(const Pointer& cont, const Arg& k, Sz key_hash, Sz buckets)
 {   
     auto index    = key_hash % buckets;
     bool iterated = false;
@@ -354,6 +354,11 @@ open_address_erase_index(Pointer cont, const Arg& k, Sz key_hash, Sz buckets)
 /* NOTE: want to be able to give custom allocator
 */
 
+/*  NOTE: the template template param Allocator and potential issues
+
+    https://stackoverflow.com/questions/38721618/why-does-stdstack-not-use-template-template-parameter
+*/
+
 template<
     typename Key,
     typename Value,
@@ -558,17 +563,6 @@ public:
 private:
 
     /**
-     * @brief For use in the struct functors
-     * 
-     * @param ptr 
-     */
-    unordered_map_file(element* ptr, size_type buckets)
-        : M_buckets(buckets),
-          M_file(ptr)  
-    {
-    }
-
-    /**
      * @brief Not very good for many reasons, but
      *        good enough.
      */
@@ -739,14 +733,8 @@ public:
         M_delete(false),
         M_load(1)
     {
-        reserve_choice(next_size(buckets, M_load), false);
+        reserve_choice(buckets, M_load, false);
     }
-
-    /*  === HERE ===
-
-        implementing the constructors, need like
-        one which takes begin and end
-    */
 
     unordered_map_file(
         size_type buckets,
@@ -1319,7 +1307,7 @@ public:
     erase(const_iterator iter)
     {
         size_type index = iter_data(iter) - M_file;
-        erase(_key(iter_data(iter) - M_file));
+        erase(TESTING_STRUCT(M_file).key(index));
 
         if (empty())
         {

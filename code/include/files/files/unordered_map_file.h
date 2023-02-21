@@ -688,6 +688,18 @@ private:
         return false;
     }
 
+    iterator
+    make_iter(size_type index)
+    {
+        return iterator(M_file + index, M_file + M_buckets);
+    }
+
+    const_iterator
+    make_iter(size_type index) const
+    {
+        return const_iterator(M_file + index, M_file + M_buckets);
+    }
+
 public:
 
     unordered_map_file() :
@@ -795,39 +807,40 @@ public:
     const_iterator
     cbegin() const
     {
-        size_type index = 0;
-        while (is_free()(M_file, index) &&
-               index != M_buckets)
+        auto iter = make_iter(0);
+        if (TESTING_STRUCT(M_file, M_buckets).is_free(0))
         {
-            ++index;
+            return ++iter;
         }
 
-        return const_iterator(M_file + index);
+        return iter;
     }
 
     iterator
     begin()
     {
-        size_type index = 0;
-        while (is_free()(M_file, index) &&
-               index != M_buckets)
+        /*  NOTE: this is not constant time, should be
+        */
+
+        auto iter = make_iter(0);
+        if (TESTING_STRUCT(M_file, M_buckets).is_free(0))
         {
-            ++index;
+            return ++iter;
         }
 
-        return iterator(M_file + index);
+        return iter;
     }
 
     const_iterator
     cend() const
     {
-        return const_iterator(M_file + M_buckets);
+        return make_iter(M_buckets);
     }
 
     iterator
     end()
     {
-        return iterator(M_file + M_buckets);
+        return make_iter(M_buckets);
     }
 
     void
@@ -1187,10 +1200,10 @@ public:
 
         if (!res.second)
         {
-            return iterator(M_file + M_buckets);
+            return make_iter(M_buckets);
         }
 
-        return iterator(M_file + res.first);
+        return make_iter(res.first);
     }
 
     const_iterator
@@ -1205,10 +1218,10 @@ public:
 
         if (!res.second)
         {
-            return const_iterator(M_file + M_buckets);
+            return make_iter(M_buckets);
         }
 
-        return const_iterator(M_file + res.first);
+        return make_iter(res.first);
     }
 
     /**
@@ -1255,7 +1268,7 @@ public:
 
         if (!res.second)
         {
-            return { iterator(M_file + res.first),false };
+            return { make_iter(res.first),false };
         }
 
         std::allocator_traits<allocator>::construct
@@ -1269,7 +1282,7 @@ public:
  
         ++M_elem;
 
-        return { iterator(M_file + res.first),true };
+        return { make_iter(res.first),true };
     }
 
     template<typename T, typename U>
@@ -1298,7 +1311,7 @@ public:
             return end();
         }
 
-        return iterator(M_file + index);
+        return make_iter(index);
     }
 
     size_type

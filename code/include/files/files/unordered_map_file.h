@@ -100,18 +100,43 @@ decrement_wrap(Sz& i, Sz mod)
 }
 
 /**
- * @brief See \ref open_address_erase_index
- * NOTE: update doc below 
- * @return Sz index of element in cont whose key compares equal
- *            to k, buckets otherwise
+ * @brief Open address find algorithm.
+ *
+ * @tparam Container container type
+ * @tparam Key key type
+ * @tparam Sz container size type to use
+ * @tparam IsFree(curr) true if the curr index be used written into
+ *                      without overriding old data, otherwise false
+ * @tparam HashComp(curr,against) comparison of modded hash values of curr
+ *                                index with against index. return
+ *                                0) curr < against
+ *                                1) curr == against
+ *                                2) curr > against
+ * @tparam KeyComp(curr,k) true if key at curr index a k compare equal,
+ *                         false otherwise
+ * @tparam HashEq(curr,num) compairson of modded hash values of
+ *                          curr index with number num
+ *                          0) curr < num
+ *                          1) curr = num
+ *                          2) curr > num
+ * @param cont container to search
+ * @param k key to look for
+ * @param key_hash key hash, will begin searching from (key_hash % buckets)
+ * @param buckets numbers of buckets. assume this to equal to one plus the
+ *                maximum valid index in cont (ie maximum number of elements)
+ *                ie the wrap around value for iteration
+ * @return std::pair<Sz, bool> Sz   - (A) found index of key
+ *                                    (B) first free index at or after key_hash
+ *                             bool - (A) true if found
+ *                                    (B) false if not found
  */
 template<
-    typename Pointer,
-    typename Arg, typename Sz,
+    typename Container,
+    typename Key, typename Sz,
     typename IsFree, typename HashComp, typename KeyComp,
     typename HashEq>
 std::pair<Sz, bool>
-open_address_find(const Pointer& cont, const Arg& k, Sz key_hash, Sz buckets)
+open_address_find(const Container& cont, const Key& k, Sz key_hash, Sz buckets)
 {   
     auto index    = key_hash % buckets;
     bool iterated = false;
@@ -191,56 +216,29 @@ open_address_find(const Pointer& cont, const Arg& k, Sz key_hash, Sz buckets)
 }
 
 /**
- * @brief Open addressing with linear probing algorithm.
- * 
- *        When collisions occur, the modded hashes of the
- *        keys will be in non-decreasing order.
- * 
- * @note Last four template params are types which
- *       must have function operators that take the
- *       cont as the first parameter
- * 
- * @tparam Cont 
- * @tparam Arg key type
- * @tparam Sz container size_type to use
- * @tparam IsFree(curr) true if the curr index be used written into
- *                      without overriding old data, otherwise false
- * @tparam HashComp(curr,against) comparison of modded hash values of curr
- *                                index with against index. return
- *                                0) curr < against
- *                                1) curr == against
- *                                2) curr > against
- * @tparam KeyComp(curr,k) true if key at curr index a k compare equal,
- *                         false otherwise
- * @tparam ElemTransfer(into,from) put contents of index from into index into
- * @tparam HashEq(curr,num) compairson of modded hash values of
- *                          curr index with number num
- *                          0) curr < num
- *                          1) curr = num
- *                          2) curr > num
- * @param cont container to manipulate
- * @param k key to insert
- * @param key_hash key hash, will begin searching from this index mod buckets
- * @param buckets numbers of buckets. assume this to equal to one plus the
- *                maximum valid index in cont (ie maximum number of elements)
- *                ie the wrap around value for iteration
- * @return std::pair<Sz,bool> Sz   - index of insertion
- *                            bool - true if inserted, false otherwise
+ * @brief Open addressing insert algorithm. See \ref open_address_find for
+ *        docs which would be redundant here.
+ *
+ * @tparam ElemTransfer(into,from) put contents of index "from" into index "into"
+ * @return std::pair<Sz,bool> Sz   - (A) index of insertion
+ *                                   (B) index of existing key
+ *                            bool - (A) true if inserted
+ *                                   (B) false if not inserted
  */
 template<
-    typename Pointer,
-    typename Arg, typename Sz,
+    typename Container,
+    typename Key, typename Sz,
     typename IsFree, typename HashComp, typename KeyComp, typename ElemTransfer,
     typename HashEq>
 std::pair<Sz, bool>
-open_address_emplace_index(Pointer cont, const Arg& k, Sz key_hash, Sz buckets)
+open_address_emplace_index(Container cont, const Key& k, Sz key_hash, Sz buckets)
 {
     auto res = open_address_find<
-        Pointer,
-        Arg, Sz,
+        Container,
+        Key, Sz,
         IsFree, HashComp, KeyComp,
-        HashEq
-    >(cont, k, key_hash, buckets);
+        HashEq>
+    (cont, k, key_hash, buckets);
 
     auto index = res.first;
 
@@ -265,30 +263,31 @@ open_address_emplace_index(Pointer cont, const Arg& k, Sz key_hash, Sz buckets)
         }
     }
 
-    return  { index,true };
+    return { index,true };
 }
 
 /**
- * @brief See \ref open_address_emplace_index
+ * @brief Open addressing erase algorithm. See \ref open_address_find for
+ *        docs which would be redundant here.
  *
  * @tparam Deconstruct(curr) destruct the element at index curr
  * @return Sz current index of removed element, buckets if no
  *            element was removed
  */
 template<
-    typename Pointer,
-    typename Arg, typename Sz,
+    typename Container,
+    typename Key, typename Sz,
     typename IsFree, typename HashComp, typename KeyComp, typename ElemTransfer,
     typename HashEq, typename Deconstruct>
 Sz
-open_address_erase_index(Pointer cont, const Arg& k, Sz key_hash, Sz buckets)
+open_address_erase_index(Container cont, const Key& k, Sz key_hash, Sz buckets)
 {
     auto res = open_address_find<
-        Pointer,
-        Arg, Sz,
+        Container,
+        Key, Sz,
         IsFree, HashComp, KeyComp,
-        HashEq
-    >(cont, k, key_hash, buckets);
+        HashEq>
+    (cont, k, key_hash, buckets);
 
     if (!res.second)
     {

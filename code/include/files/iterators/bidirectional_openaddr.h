@@ -23,14 +23,21 @@ public:
     using value_type        = Underlying;
     using pointer           = Underlying*;
 
-    bidirectional_openaddr(pointer ptr)
-        : M_data{ ptr }
+    /**
+     * @brief
+     *
+     * @param curr current pointer
+     * @param begin one before begin
+     * @param end one past end
+     */
+    bidirectional_openaddr(pointer curr, pointer end) :
+        M_data(curr), M_end(end)
     {
     }
 
     operator bidirectional_openaddr<const Val, Underlying, Cont, UtoV, IsFree>() const
     {
-        return bidirectional_openaddr<const Val, Underlying, Cont, UtoV, IsFree>{ M_data };
+        return bidirectional_openaddr<const Val, Underlying, Cont, UtoV, IsFree>(M_data, M_end);
     }
 
     reference
@@ -48,11 +55,11 @@ public:
     bidirectional_openaddr<Val, Underlying, Cont, UtoV, IsFree>&
     operator++()
     {
-        ++M_data;
-        while (IsFree()(M_data))
+        do
         {
             ++M_data;
-        }
+        } while (IsFree()(M_data) && M_data != M_end);
+
         return *this;
     }
 
@@ -67,11 +74,11 @@ public:
     bidirectional_openaddr<Val, Underlying, Cont, UtoV, IsFree>&
     operator--()
     {
-        --M_data;
-        while (IsFree()(M_data))
+        do
         {
             --M_data;
-        }
+        } while (IsFree()(M_data));
+
         return *this;
     }
 
@@ -83,7 +90,7 @@ public:
         return temp;
     }
 
-    pointer M_data;
+    pointer M_data, M_end;
 
 };
 

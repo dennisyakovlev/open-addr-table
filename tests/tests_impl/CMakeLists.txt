@@ -9,6 +9,7 @@ set(sources
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/test_block.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/test_unordered_map_req.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/test_umaplru.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/test_iterator.cpp
 )
 
 add_executable(${tests} ${sources} main.cpp)

@@ -231,7 +231,7 @@ template<
     typename IsFree, typename HashComp, typename KeyComp, typename ElemTransfer,
     typename HashEq>
 std::pair<Sz, bool>
-open_address_emplace_index(Container cont, const Key& k, Sz key_hash, Sz buckets)
+open_address_emplace_index(Container& cont, const Key& k, Sz key_hash, Sz buckets)
 {
     auto res = open_address_find<
         Container,
@@ -280,7 +280,7 @@ template<
     typename IsFree, typename HashComp, typename KeyComp, typename ElemTransfer,
     typename HashEq, typename Deconstruct>
 Sz
-open_address_erase_index(Container cont, const Key& k, Sz key_hash, Sz buckets)
+open_address_erase_index(Container& cont, const Key& k, Sz key_hash, Sz buckets)
 {
     auto res = open_address_find<
         Container,
@@ -331,8 +331,6 @@ open_address_erase_index(Container cont, const Key& k, Sz key_hash, Sz buckets)
             modded hash value.
         */
         auto curr = index, start_same = next;
-        // start_same issue, index or next
-        //  thought about next, but idk didnt go with it
         while (!IsFree()(cont, next) &&
                HashComp()(cont, next, start_same) == 1 &&
                HashEq()(cont, next, next) != 1 &&
@@ -403,12 +401,6 @@ public:
         TESTING_STRUCT(element* ptr, size_type buckets) :
             M_ptr(ptr),
             M_buckets(buckets)
-        {
-        }
-
-        TESTING_STRUCT(std::pair<element*, size_type> p) :
-            M_ptr(p.first),
-            M_buckets(p.second)
         {
         }
 
@@ -1032,9 +1024,8 @@ public:
         struct local_is_free
         {
             bool
-            operator()(const local_cont* ptr, size_type curr) const
+            operator()(const local_cont& cont, size_type curr) const
             {
-                const auto& cont = *ptr;
                 return cont[curr].second == nullptr;
             }
         };
@@ -1042,9 +1033,8 @@ public:
         struct local_hash_comp
         {
             size_type
-            operator()(const local_cont* ptr, size_type curr, size_type against) const
+            operator()(const local_cont& cont, size_type curr, size_type against) const
             {
-                const auto& cont         = *ptr;
                 const auto orig_elem_ptr = cont[curr].second;
 
                 if (!orig_elem_ptr || !cont[against].second)
@@ -1062,9 +1052,8 @@ public:
         struct local_key_comp
         {
             size_type
-            operator()(const local_cont* ptr, size_type curr, const Key& k) const
+            operator()(const local_cont& cont, size_type curr, const Key& k) const
             {
-                const auto& cont         = *ptr;
                 const auto orig_elem_ptr = cont[curr].second;
 
                 if (!orig_elem_ptr)
@@ -1082,9 +1071,8 @@ public:
         struct local_elem_transfer
         {
             void
-            operator()(local_cont* ptr, size_type to, size_type from)
+            operator()(local_cont& cont, size_type to, size_type from)
             {
-                auto& cont = *ptr;
                 const auto start = cont.back().second;
                 cont[cont[from].second - start].first = to;
 
@@ -1095,9 +1083,8 @@ public:
         struct bruh_hash_eq
         {
             size_type
-            operator()(const local_cont* ptr, size_type curr, size_type num)
+            operator()(const local_cont& cont, size_type curr, size_type num)
             {
-                const auto& cont = *ptr;
                 const auto orig_elem_ptr = cont[curr].second;
 
                 return local_hash_eq()(
@@ -1128,11 +1115,11 @@ public:
 
             TESTING_STRUCT temp(M_file);
             auto now_taken = open_address_emplace_index<
-                local_cont*,
+                local_cont,
                 Key, size_type,
                 local_is_free, local_hash_comp, local_key_comp, local_elem_transfer,
-                bruh_hash_eq
-            >(std::addressof(vec), temp.key(index), temp.hash(index), new_buckets).first;
+                bruh_hash_eq>
+            (vec, temp.key(index), temp.hash(index), new_buckets).first;
 
             vec[index].first      = now_taken;
             vec[now_taken].second = M_file + index;
@@ -1193,12 +1180,13 @@ public:
     iterator
     find(const_reference_key k)
     {
+        TESTING_STRUCT temp(M_file, M_buckets);
         const auto res = open_address_find<
-            std::pair<element*, size_type>,
+            TESTING_STRUCT,
             key_type, size_type,
             is_free, hash_comp, key_comp<key_type>,
-            local_hash_eq
-        >({M_file, M_buckets}, k, Hash()(k), M_buckets);
+            local_hash_eq>
+        (temp, k, Hash()(k), M_buckets);
 
         if (!res.second)
         {
@@ -1211,12 +1199,13 @@ public:
     const_iterator
     find(const_reference_key k) const
     {
+        TESTING_STRUCT temp(M_file, M_buckets);
         const auto res = open_address_find<
-            std::pair<element*, size_type>,
+            TESTING_STRUCT,
             key_type, size_type,
             is_free, hash_comp, key_comp<key_type>,
-            local_hash_eq
-        >({M_file, M_buckets}, k, Hash()(k), M_buckets);
+            local_hash_eq>
+        (temp, k, Hash()(k), M_buckets);
 
         if (!res.second)
         {
@@ -1261,12 +1250,13 @@ public:
             reserve_choice(M_buckets + 1, M_load, true);
         }
 
+        TESTING_STRUCT temp(M_file, M_buckets);
         const auto res = open_address_emplace_index<
-            std::pair<element*, size_type>,
+            TESTING_STRUCT,
             Arg, size_type,
             is_free, hash_comp, key_comp<Arg>, Elem_Move_Test,
-            local_hash_eq
-        >({M_file, M_buckets}, k, hashed, M_buckets);
+            local_hash_eq>
+        (temp, k, hashed, M_buckets);
 
         if (!res.second)
         {
@@ -1321,24 +1311,25 @@ public:
     {
         struct local_deconstruct
         {
-            void operator()(std::pair<element*, size_type> pair, size_type curr)
+            void operator()(TESTING_STRUCT cont, size_type curr)
             {
                 using alloc = std::allocator<value_type>;
                 alloc a;
                 std::allocator_traits<alloc>::destroy
                 (
                     a,
-                    std::addressof(TESTING_STRUCT(pair).value_type(curr))
+                    std::addressof(cont.value_type(curr))
                 );
             }
         };
 
+        TESTING_STRUCT temp(M_file, M_buckets);
         auto res = open_address_erase_index<
-            std::pair<element*, size_type>,
+            TESTING_STRUCT,
             key_type, size_type,
             is_free, hash_comp, key_comp<key_type>, Elem_Move_Test,
             local_hash_eq, local_deconstruct>
-        ({M_file, M_buckets}, k, Hash()(k), M_buckets);
+        (temp, k, Hash()(k), M_buckets);
 
         if (res == M_buckets)
         {

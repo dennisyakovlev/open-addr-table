@@ -5,7 +5,7 @@ build_dir=build_out
 mkdir -p "$build_dir"
 
 #configure
-cmake -B "$build_dir" -DTESTING=1
+cmake -B "$build_dir" -DTESTING=1 -DFAST_TESTS=true
 if [ $? -ne 0 ]; then
     >&2 echo "cmake configuration failed"
     exit 1

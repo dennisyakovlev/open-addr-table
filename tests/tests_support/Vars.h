@@ -4,29 +4,14 @@
 #include <climits>
 #include <functional>
 #include <type_traits>
-#include <unistd.h>
 
 #include <files/Allocators.h>
 #include <files/Files.h>
-#include <tests_support/SpecialHash.h>
-
-#include <unordered_map>
 
 constexpr const char* unit_test_dir = "UNIT_TEST_TEMP_FILES";
 constexpr const char* unit_test_file = "unit_test_file";
 
-/*  NOTE: change these params to be given in the build stuff
-*/
-#define TESTS_NUM_THREADS 4
-
 constexpr std::size_t TESTS_NUM_ITERATS = 100000;
-
-/*  to allow for control from the build system
-
-    false - no
-    true  - yes
-*/
-#define FAST_TESTS true
 
 /**
  * @brief Used to determine whether to use "fast" or "slow" file

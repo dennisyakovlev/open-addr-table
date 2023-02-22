@@ -5,9 +5,6 @@ void
 build_asm_pause();
 
 void
-build_futex();
-
-void
 build_libcall();
 
 void

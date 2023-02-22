@@ -1,7 +1,5 @@
 set(sources
-    Funcs.h
     build_asm_pause.cpp
-    build_futex.cpp
     build_libcall.cpp
     build_syscall.cpp
     build_pthread.cpp

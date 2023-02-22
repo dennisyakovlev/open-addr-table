@@ -388,23 +388,23 @@ public:
     using const_pointer_key   = const Key*;
     using mapped_type         = Value;
 
-    struct TESTING_STRUCT
+    struct access
     {
 
-        TESTING_STRUCT() = delete;
+        access() = delete;
 
-        TESTING_STRUCT(element* ptr) :
+        access(element* ptr) :
             M_ptr(ptr)
         {
         }
 
-        TESTING_STRUCT(element* ptr, size_type buckets) :
+        access(element* ptr, size_type buckets) :
             M_ptr(ptr),
             M_buckets(buckets)
         {
         }
 
-        ~TESTING_STRUCT() = default;
+        ~access() = default;
 
         element&
         block(size_type index)
@@ -482,7 +482,7 @@ public:
     struct is_free
     {
         bool
-        operator()(TESTING_STRUCT cont, size_type index) const
+        operator()(access cont, size_type index) const
         {
             return cont.is_free(index);
         }
@@ -491,7 +491,7 @@ public:
     struct hash_comp
     {
         size_type
-        operator()(TESTING_STRUCT cont, size_type curr, size_type against) const
+        operator()(access cont, size_type curr, size_type against) const
         {
             const auto modded_curr    = cont.hash(curr) % cont.buckets();
             const auto modded_against = cont.hash(against) % cont.buckets();
@@ -506,18 +506,28 @@ public:
         /*  NOTE: should this be a perfect forward ?
         */
         bool
-        operator()(TESTING_STRUCT cont, size_type curr, K k) const
+        operator()(access cont, size_type curr, K k) const
         {
             return cont.key(curr) == k;
         }
     };
 
-    struct Elem_Move_Test
+    struct elem_move
     {
         void
-        operator()(TESTING_STRUCT cont, size_type to, size_type from)
+        operator()(access cont, size_type to, size_type from)
         {
             cont.block(to) = cont.block(from); 
+        }
+    };
+
+    struct hash_eq
+    {
+        size_type operator()(access cont, size_type curr, size_type num)
+        {
+            const auto modded_curr = cont.hash(curr) % cont.buckets();
+
+            return (modded_curr >= num) * (1 + (modded_curr > num));
         }
     };
 
@@ -540,16 +550,6 @@ public:
         unordered_map_file<Key, Value, Hash>,
         convert, is_free_iter>;
     using difference_type = typename iterator::difference_type;
-
-    struct local_hash_eq
-    {
-        size_type operator()(TESTING_STRUCT cont, size_type curr, size_type num)
-        {
-            const auto modded_curr = cont.hash(curr) % cont.buckets();
-
-            return (modded_curr >= num) * (1 + (modded_curr > num));
-        }
-    };
 
 private:
 
@@ -664,7 +664,7 @@ private:
 
             for (; M_buckets != new_buckets; ++M_buckets)
             {
-                TESTING_STRUCT(M_file).set_free(M_buckets, true);
+                access(M_file).set_free(M_buckets, true);
             }
 
             return true;
@@ -787,7 +787,7 @@ public:
     cbegin() const
     {
         auto iter = make_iter(0);
-        if (TESTING_STRUCT(M_file, M_buckets).is_free(0))
+        if (access(M_file, M_buckets).is_free(0))
         {
             return ++iter;
         }
@@ -802,7 +802,7 @@ public:
         */
 
         auto iter = make_iter(0);
-        if (TESTING_STRUCT(M_file, M_buckets).is_free(0))
+        if (access(M_file, M_buckets).is_free(0))
         {
             return ++iter;
         }
@@ -1087,7 +1087,7 @@ public:
             {
                 const auto orig_elem_ptr = cont[curr].second;
 
-                return local_hash_eq()(
+                return hash_eq()(
                     {cont.back().second, cont.back().first},
                     orig_elem_ptr - cont.back().second, num
                 );
@@ -1113,7 +1113,7 @@ public:
             const auto data       = iter_data(iter);
             const size_type index = data - M_file;
 
-            TESTING_STRUCT temp(M_file);
+            access temp(M_file);
             auto now_taken = open_address_emplace_index<
                 local_cont,
                 Key, size_type,
@@ -1160,8 +1160,8 @@ public:
                 while (stack.size() > 1)
                 {
                     auto end = stack.rbegin();
-                    Elem_Move_Test()(M_file, *end, *(end + 1));
-                    TESTING_STRUCT(M_file).set_free(*(end + 1), true);
+                    elem_move()(M_file, *end, *(end + 1));
+                    access(M_file).set_free(*(end + 1), true);
                     stack.pop_back();
                 }
                 stack.pop_back();
@@ -1180,12 +1180,12 @@ public:
     iterator
     find(const_reference_key k)
     {
-        TESTING_STRUCT temp(M_file, M_buckets);
+        access temp(M_file, M_buckets);
         const auto res = open_address_find<
-            TESTING_STRUCT,
+            access,
             key_type, size_type,
             is_free, hash_comp, key_comp<key_type>,
-            local_hash_eq>
+            hash_eq>
         (temp, k, Hash()(k), M_buckets);
 
         if (!res.second)
@@ -1199,12 +1199,12 @@ public:
     const_iterator
     find(const_reference_key k) const
     {
-        TESTING_STRUCT temp(M_file, M_buckets);
+        access temp(M_file, M_buckets);
         const auto res = open_address_find<
-            TESTING_STRUCT,
+            access,
             key_type, size_type,
             is_free, hash_comp, key_comp<key_type>,
-            local_hash_eq>
+            hash_eq>
         (temp, k, Hash()(k), M_buckets);
 
         if (!res.second)
@@ -1250,12 +1250,12 @@ public:
             reserve_choice(M_buckets + 1, M_load, true);
         }
 
-        TESTING_STRUCT temp(M_file, M_buckets);
+        access temp(M_file, M_buckets);
         const auto res = open_address_emplace_index<
-            TESTING_STRUCT,
-            Arg, size_type,
-            is_free, hash_comp, key_comp<Arg>, Elem_Move_Test,
-            local_hash_eq>
+            access,
+            Key, size_type,
+            is_free, hash_comp, key_comp<Key>, elem_move,
+            hash_eq>
         (temp, k, hashed, M_buckets);
 
         if (!res.second)
@@ -1296,7 +1296,7 @@ public:
     erase(const_iterator iter)
     {
         size_type index = iter_data(iter) - M_file;
-        erase(TESTING_STRUCT(M_file).key(index));
+        erase(access(M_file).key(index));
 
         if (empty())
         {
@@ -1311,7 +1311,7 @@ public:
     {
         struct local_deconstruct
         {
-            void operator()(TESTING_STRUCT cont, size_type curr)
+            void operator()(access cont, size_type curr)
             {
                 using alloc = std::allocator<value_type>;
                 alloc a;
@@ -1323,12 +1323,12 @@ public:
             }
         };
 
-        TESTING_STRUCT temp(M_file, M_buckets);
+        access temp(M_file, M_buckets);
         auto res = open_address_erase_index<
-            TESTING_STRUCT,
+            access,
             key_type, size_type,
-            is_free, hash_comp, key_comp<key_type>, Elem_Move_Test,
-            local_hash_eq, local_deconstruct>
+            is_free, hash_comp, key_comp<key_type>, elem_move,
+            hash_eq, local_deconstruct>
         (temp, k, Hash()(k), M_buckets);
 
         if (res == M_buckets)
@@ -1336,7 +1336,7 @@ public:
             return 0;
         }
 
-        TESTING_STRUCT(M_file).set_free(res, true);
+        access(M_file).set_free(res, true);
         --M_elem;
 
         return 1;
@@ -1359,7 +1359,7 @@ public:
     {
         for (size_type index = 0; index != M_buckets; ++index)
         {
-            TESTING_STRUCT(M_file).set_free(index, true);
+            access(M_file).set_free(index, true);
         }
 
         M_elem = 0;

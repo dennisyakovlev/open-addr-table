@@ -1242,7 +1242,7 @@ public:
     std::pair<iterator, bool>
     emplace(Arg&& arg, Args&&... args)
     {
-        Arg k(std::forward<Arg>(arg));
+        Key k(std::forward<Arg>(arg));
         const auto hashed = Hash()(k);
 
         if (M_elem == M_buckets)

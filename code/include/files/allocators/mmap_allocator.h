@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <fcntl.h>
+#include <functional>
 #include <stdio.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -35,6 +36,42 @@ public:
     using size_type  = std::size_t; 
 
 private:
+
+    /**
+     * @brief A not very random but random enough name
+     *        generator.
+     *
+     * @return std::string string consisting of alpha characters
+     */
+    std::string
+    default_name_gen()
+    {
+        static const char alphanum[] =
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+            "abcdefghijklmnopqrstuvwxyz";
+
+        constexpr std::string::size_type len = 16;
+        std::string tmp_s;
+        tmp_s.reserve(len);
+        ::srand(::time(nullptr));
+        for (std::string::size_type i = 0; i != len; ++i)
+        {
+            tmp_s += alphanum[::rand() % (sizeof(alphanum) - 1)];
+        }
+
+        while (::access(tmp_s.c_str(), F_OK) == 0)
+        {
+            ::srand(::time(nullptr) * tmp_s[0]);
+            tmp_s.clear();
+
+            for (std::string::size_type i = 0; i != len; ++i)
+            {
+                tmp_s += alphanum[::rand() % (sizeof(alphanum) - 1)];
+            }
+        }
+
+        return tmp_s;
+    }
 
     int
     open_or_create()
@@ -128,18 +165,21 @@ private:
 
 public:
 
-    // NOTE: delete this and add constructor which forces
-    //       person to acknowladge that theyve constructed unusable object
-    /**
-     * @brief Not usable if default constructed. Is just here
-     *        if need be.
-     * 
-     */
-    mmap_allocator() = default;
+    mmap_allocator() :
+        M_file(default_name_gen()),
+        M_least(false)
+    {
+    }
 
-    mmap_allocator(const std::string& file)
-        : M_file(file),
-          M_least(false)
+    mmap_allocator(std::string&& file) :
+        M_file(std::move(file)),
+        M_least(false)
+    {
+    }
+
+    mmap_allocator(const std::string& file) :
+        M_file(file),
+        M_least(false)
     {
     }
 

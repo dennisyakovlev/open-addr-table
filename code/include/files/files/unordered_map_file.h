@@ -554,41 +554,6 @@ public:
 private:
 
     /**
-     * @brief Not very good for many reasons, but
-     *        good enough.
-     */
-    std::string
-    _gen_random(const std::string::size_type len)
-    {
-        static const char alphanum[] =
-            "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-            "abcdefghijklmnopqrstuvwxyz";
-        
-        std::string tmp_s;
-        tmp_s.reserve(len);
-        ::srand(::time(nullptr));
-        for (std::string::size_type i = 0; i != len; ++i)
-        {
-            tmp_s += alphanum[::rand() % (sizeof(alphanum) - 1)];
-        }
-        
-        /*  NOTE: could prolly change this to be a global func in util or sum
-        */
-        while (::access(tmp_s.c_str(), F_OK) == 0)
-        {
-            ::srand(::time(nullptr) * tmp_s[0]);
-            tmp_s.clear();
-
-            for (std::string::size_type i = 0; i != len; ++i)
-            {
-                tmp_s += alphanum[::rand() % (sizeof(alphanum) - 1)];
-            }
-        }
-        
-        return tmp_s;
-    }
-
-    /**
      * @brief Get the next preferred increasing size of the
      *        container.
      * 
@@ -688,9 +653,8 @@ private:
 public:
 
     unordered_map_file() :
-        M_name(_gen_random(16)),
         M_buckets(0), M_elem(0),
-        M_alloc(M_name),
+        M_alloc(),
         M_delete(false),
         M_load(1)
     {
@@ -698,9 +662,8 @@ public:
     }
 
     unordered_map_file(size_type buckets) :
-        M_name(_gen_random(16)),
         M_buckets(0), M_elem(0),
-        M_alloc(M_name),
+        M_alloc(),
         M_delete(false),
         M_load(1)
     {
@@ -708,9 +671,8 @@ public:
     }
 
     unordered_map_file(std::string name) :
-        M_name(std::move(name)),
         M_buckets(0), M_elem(0),
-        M_alloc(M_name),
+        M_alloc(std::move(name)),
         M_delete(false),
         M_load(1)
     {
@@ -718,9 +680,8 @@ public:
     }
 
     unordered_map_file(size_type buckets, std::string name) :
-        M_name(std::move(name)),
         M_buckets(0), M_elem(0),
-        M_alloc(M_name),
+        M_alloc(std::move(name)),
         M_delete(false),
         M_load(1)
     {
@@ -732,9 +693,8 @@ public:
         std::string name,
         std::initializer_list<size_type> choices = {}
     ) :
-        M_name(std::move(name)),
         M_buckets(0), M_elem(0),
-        M_alloc(M_name),
+        M_alloc(std::move(name)),
         M_delete(false),
         M_load(1)
     {
@@ -747,7 +707,6 @@ public:
     }
 
     unordered_map_file(unordered_map_file&& rv) :
-        M_name(std::move(rv.M_name)),
         M_buckets(rv.M_buckets), M_elem(rv.M_elem),
         M_alloc(rv.M_alloc),
         M_delete(rv.M_delete),
@@ -1462,7 +1421,6 @@ public:
 
 private:
 
-    const std::string M_name;
     size_type         M_buckets, M_elem;
     allocator         M_alloc;
     bool              M_delete;

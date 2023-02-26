@@ -10,6 +10,12 @@
 
 FILE_NAMESPACE_BEGIN
 
+/**
+ * @brief Extension of basic std allocator with reallocate.
+ *        Container requires reallocate, so added here.
+ *
+ * @tparam T
+ */
 template<typename T>
 class basic_allocator :
     public std::allocator<T>
@@ -22,10 +28,25 @@ public:
 
     using base::allocator;
 
+    /**
+     * @brief For compatibility with mmap allocator. Just
+     *        disregard the naming request.
+     *
+     */
     basic_allocator(std::string)
     {
     }
 
+    /**
+     * @brief Forcefully reallocate some memory by allocating
+     *        new memory, moving old memory into new memory,
+     *        and deallocating old memory
+     *
+     * @param old_addr old address returned from allocate
+     * @param n_old old number of elememts given to allocate
+     * @param n new number of elements to allocate
+     * @return pointer start of new memory
+     */
     pointer
     reallocate(pointer old_addr, size_type n_old, size_type n)
     {

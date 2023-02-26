@@ -9,7 +9,7 @@ find_package(Threads REQUIRED)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(include ${CMAKE_CURRENT_SOURCE_DIR}/code/include CACHE FILEPATH "include dir")
+set(include ${CMAKE_CURRENT_SOURCE_DIR}/include CACHE FILEPATH "include dir")
 
 if (NOT DEFINED CPU_CORES)
     execute_process(

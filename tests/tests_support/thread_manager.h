@@ -104,8 +104,12 @@ thread_increment(void* arg)
  *        tests more readable.
  * 
  * @tparam Lock lock type
+ * @tparam Arg arguement typed to be passed to functions
+ *             in the threads
  */
-template<typename Lock, typename Arg = thread_arg<Lock>>
+template<
+    typename Lock,
+    typename Arg = thread_arg<Lock>>
 class thread_manager
 {
 public:
@@ -129,6 +133,14 @@ public:
         }
     }
 
+    /**
+     * @brief Same as above but allow dependancy injection for
+     *        the function arguement type.
+     *
+     * @tparam Args arguement types to pass to arg
+     * @param num number of threads to create with default function
+     * @param args arguements to pass to Arg
+     */
     template<typename... Args>
     thread_manager(std::size_t num, Args... args) :
         M_thread_num(0),

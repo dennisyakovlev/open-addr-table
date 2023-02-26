@@ -12,11 +12,11 @@ class MapIteratorTest :
 {
 protected:
 
-    File file;
+    File cont;
 
     MapIteratorTest()
     {
-        MmapFiles::destruct_is_wipe(file, true);
+        MmapFiles::destruct_is_wipe(cont, true);
     }
 
 };
@@ -28,12 +28,12 @@ TEST_F(MapIteratorTest, Begin)
         beginning
     */
 
-    file.bucket_choices({6});
-    file.rehash(6);
+    cont.bucket_choices({6});
+    cont.rehash(6);
 
-    file.emplace(5, 0);
+    cont.emplace(5, 0);
 
-    auto beg = file.cbegin();
+    auto beg = cont.cbegin();
     ASSERT_EQ(5, beg->first);
 }
 
@@ -43,41 +43,41 @@ TEST_F(MapIteratorTest, ToEnd)
         empty spaces in array
     */
     
-    file.bucket_choices({9});
-    file.rehash(9);
+    cont.bucket_choices({9});
+    cont.rehash(9);
 
-    file.emplace(4, 0);
+    cont.emplace(4, 0);
 
-    auto beg = file.begin();
+    auto beg = cont.begin();
     ++beg;
-    ASSERT_EQ(beg, file.cend());
+    ASSERT_EQ(beg, cont.cend());
 }
 
 TEST_F(MapIteratorTest, ToBegin)
 {
-    file.bucket_choices({9});
-    file.rehash(9);
+    cont.bucket_choices({9});
+    cont.rehash(9);
 
-    file.emplace(4, 0);
+    cont.emplace(4, 0);
 
-    auto end = file.end();
+    auto end = cont.end();
     --end;
-    ASSERT_EQ(end, file.cbegin());
+    ASSERT_EQ(end, cont.cbegin());
 }
 
 TEST_F(MapIteratorTest, One)
 {
-    file.bucket_choices({1});
-    file.rehash(1);
+    cont.bucket_choices({1});
+    cont.rehash(1);
 
-    file.emplace(5, 0);
+    cont.emplace(5, 0);
 
-    auto beg = file.begin();
+    auto beg = cont.begin();
     ++beg;
-    ASSERT_EQ(beg, file.cend());
+    ASSERT_EQ(beg, cont.cend());
 }
 
 TEST_F(MapIteratorTest, Empty)
 {
-    ASSERT_EQ(file.begin(), file.end());
+    ASSERT_EQ(cont.begin(), cont.end());
 }

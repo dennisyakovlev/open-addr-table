@@ -245,12 +245,10 @@ public:
         ::munmap(addr, n);
     }
 
-    /*  NOTE: destroy idea here is wrong 
-    */
-    int
-    destroy()
+    void
+    wipe()
     {
-        return ::remove(M_file.c_str());
+        ::remove(M_file.c_str());
     }
 
 private:

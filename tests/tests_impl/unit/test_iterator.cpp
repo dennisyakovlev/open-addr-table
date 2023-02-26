@@ -14,6 +14,11 @@ protected:
 
     File file;
 
+    MapIteratorTest()
+    {
+        MmapFiles::destruct_is_wipe(file, true);
+    }
+
 };
 
 TEST_F(MapIteratorTest, Begin)

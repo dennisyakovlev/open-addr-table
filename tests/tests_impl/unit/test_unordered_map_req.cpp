@@ -54,6 +54,7 @@ public:
     UnorderedMapReqTest()
         : cont(8)
     {
+        MmapFiles::destruct_is_wipe(cont, true);
     }
 
 };

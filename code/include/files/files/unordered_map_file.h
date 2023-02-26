@@ -66,6 +66,77 @@
 FILE_NAMESPACE_BEGIN
 
 /**
+ * @brief Check whether a type has member function matching
+ *        unordered_map_file::destruct_is_wipe.
+ *
+ * @note Taken from https://stackoverflow.com/a/3627243/10162890, thank you
+ *
+ * @tparam Type type to check
+ */
+template <class Type>
+class type_has_wipe
+{
+private:
+
+    template <typename T, T>
+    struct TypeCheck;
+
+    typedef char Yes;
+    typedef long No;
+
+    template <typename T>
+    struct wipe
+    {
+        typedef void (T::*fptr)(bool);
+    };
+
+    template <typename T>
+    static Yes HasWipe(TypeCheck<typename wipe<T>::fptr, &T::destruct_is_wipe>*);
+    template <typename T>
+    static No  HasWipe(...);
+
+public:
+
+    static bool const value = (sizeof(HasWipe<Type>(0)) == sizeof(Yes));
+
+};
+
+template<typename T, bool has_wipe = false>
+struct wipe_specialize
+{
+    static void call(T& t, bool b)
+    {
+    }
+};
+
+template<typename T>
+struct wipe_specialize<T, true>
+{
+    static void call(T& t, bool b)
+    {
+        t.destruct_is_wipe(b);
+    }
+};
+
+/**
+ * @brief Call destruct_is_wipe on a type if it exists, other do nothing.
+ *
+ *        Point of this is to allow compatibilituy with other types when
+ *        using an unordered_map_file with mmap_allocator and default file
+ *        name. This would allow deletion of the file on disk when the
+ *        map object is destructed, giving same behaviour as a normal map.
+ *
+ * @tparam T any type
+ * @param t type to attempt to use
+ * @param b see destruct_is_wipe for unordered_map_file
+ */
+template<typename T>
+void destruct_is_wipe(T& t, bool b)
+{
+    wipe_specialize<T, type_has_wipe<T>::value>::call(t, b);
+}
+
+/**
  * @brief Increment with wrap around around mod.
  * 
  * @tparam Sz unsigned type
@@ -726,13 +797,11 @@ public:
                 M_file,
                 M_buckets
             );
+        }
 
-            /*  NOTE: fix up alloc destroy
-            */
-            // if (M_delete)
-            // {
-            //     M_alloc.destroy();
-            // }
+        if (M_delete)
+        {
+            M_alloc.wipe();
         }
     }
 
@@ -1373,6 +1442,13 @@ public:
         */
     }
 
+    /**
+     * @brief Decide whether on destruct it is necessary to delete
+     *        the associated file on disk.
+     *
+     * @param b true for yes, false for no. If false the data on
+     *          disk will not be bound by the lifetime of the object.
+     */
     void
     destruct_is_wipe(bool b)
     {

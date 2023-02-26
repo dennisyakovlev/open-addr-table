@@ -10,6 +10,7 @@
 
 #include <gtest/gtest.h>
 
+#include <files/Files.h>
 #include <tests_support/SpecialHash.h>
 
 /**
@@ -41,14 +42,8 @@ protected:
         cont(std::move(c))
     {
         reset_gen();
-    }
+        MmapFiles::destruct_is_wipe(cont, true);
 
-    ~StrictOperation()
-    {
-        /*  Clear instead of manipulating a potential file.
-            Assuming clear is correct, this is much faster
-        */
-        cont.clear();
     }
 
     /**

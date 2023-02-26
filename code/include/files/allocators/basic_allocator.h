@@ -66,6 +66,16 @@ public:
         return ptr;
     }
 
+    /**
+     * @brief For compatibility with mmap allocator. Just
+     *        disregard the naming request.
+     *
+     */
+    void
+    wipe()
+    {
+    }
+
 };
 
 FILE_NAMESPACE_END

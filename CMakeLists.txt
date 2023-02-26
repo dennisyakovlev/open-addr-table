@@ -14,12 +14,17 @@ set(include ${CMAKE_CURRENT_SOURCE_DIR}/include CACHE FILEPATH "include dir")
 if (NOT DEFINED CPU_CORES)
     execute_process(
         COMMAND "sh" "-c" "cat /proc/cpuinfo | grep -i cores | head -n 1 | egrep -o [0-9]+ | tr -d '\n'"
+        
+        # could try this command
+        # cmake cannot handle escaped characters, so use CPU.{1}s.{1} instead of CPU\(s\) 
+        # COMMAND "sh" "-c" "echo $(($(lscpu | egrep '^CPU.{1}s.{1}: *[0-9]+$' | egrep -o '[0-9]+') / $(lscpu | egrep '.*Thread.*' | egrep -o '[0-9]+'))) | tr -d '\n'"
+        
         OUTPUT_VARIABLE CPU_CORES
     )
     if (${CPU_CORES} MATCHES "^[0-9]+$")
         message(STATUS "Found ${CPU_CORES} physical CPU cores")
     else()
-        message(FATAL_ERROR "Could not get number of cpu cores")
+        message(FATAL_ERROR "Could not get number of cpu cores, got \"${CPU_CORES}\"")
     endif()
 endif()
 

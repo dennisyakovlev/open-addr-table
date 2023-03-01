@@ -827,6 +827,28 @@ public:
         }
     }
 
+    Value& operator[](const Key& k)
+    {
+        auto iter = find(k);
+        if (iter != end())
+        {
+            return iter->second;
+        }
+
+        return emplace(k, Value()).first->second;
+    }
+
+    Value& operator[](Key&& k)
+    {
+        auto iter = find(k);
+        if (iter != end())
+        {
+            return iter->second;
+        }
+
+        return emplace(k, Value()).first->second;
+    }
+
     size_type
     size() const
     {

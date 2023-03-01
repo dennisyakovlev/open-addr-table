@@ -684,7 +684,7 @@ private:
      * @return false failed to reserve space
      */
     bool
-    reserve_choice(size_type buckets, float mlf, bool realloc)
+    reserve_choice(size_type buckets, float mlf, bool realloc, bool preserve)
     {
         auto new_buckets = next_size(buckets, mlf);
         if (new_buckets != max_size() + 1)
@@ -698,9 +698,22 @@ private:
                 M_file  = M_alloc.allocate(new_buckets);
             }
 
-            for (; M_buckets != new_buckets; ++M_buckets)
+            if (preserve)
             {
-                access(M_file).set_free(M_buckets, true);
+                for (; M_buckets != new_buckets; ++M_buckets)
+                {
+                    if (!access(M_file).is_free(M_buckets))
+                    {
+                        ++M_elem;
+                    }
+                }
+            }
+            else
+            {
+                for (; M_buckets != new_buckets; ++M_buckets)
+                {
+                    access(M_file).set_free(M_buckets, true);
+                }
             }
 
             return true;
@@ -729,7 +742,7 @@ public:
         M_delete(false),
         M_load(1)
     {
-        reserve_choice(0, M_load, false);
+        reserve_choice(0, M_load, false, false);
     }
 
     unordered_map_file(size_type buckets) :
@@ -738,7 +751,7 @@ public:
         M_delete(false),
         M_load(1)
     {
-        reserve_choice(buckets, M_load, false);
+        reserve_choice(buckets, M_load, false, false);
     }
 
     unordered_map_file(std::string name) :
@@ -747,7 +760,16 @@ public:
         M_delete(false),
         M_load(1)
     {
-        reserve_choice(0, M_load, false);
+        reserve_choice(0, M_load, false, false);
+    }
+
+    unordered_map_file(std::string name, size_type buckets, bool preserve) :
+        M_buckets(0), M_elem(0),
+        M_alloc(std::move(name)),
+        M_delete(false),
+        M_load(1)
+    {
+        reserve_choice(buckets, M_load, false, true);
     }
 
     unordered_map_file(size_type buckets, std::string name) :
@@ -756,7 +778,7 @@ public:
         M_delete(false),
         M_load(1)
     {
-        reserve_choice(buckets, M_load, false);
+        reserve_choice(buckets, M_load, false, false);
     }
 
     unordered_map_file(
@@ -774,7 +796,7 @@ public:
             bucket_choices(choices);
         }
 
-        reserve_choice(buckets, M_load, false);
+        reserve_choice(buckets, M_load, false, false);
     }
 
     unordered_map_file(unordered_map_file&& rv) :
@@ -1155,7 +1177,7 @@ public:
 
         // if (buckets > M_buckets)
         // {
-            reserve_choice(new_buckets, M_load, true);
+            reserve_choice(new_buckets, M_load, true, false);
         // }
 
         /*  NOTE: document
@@ -1275,7 +1297,7 @@ public:
 
         if (M_elem == M_buckets)
         {
-            reserve_choice(M_buckets + 1, M_load, true);
+            reserve_choice(M_buckets + 1, M_load, true, false);
         }
 
         access temp(M_file, M_buckets);

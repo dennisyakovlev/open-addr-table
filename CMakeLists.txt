@@ -54,3 +54,6 @@ if(TESTING EQUAL 1)
 
     add_test(NAME tests COMMAND $<TARGET_FILE:${tests}>)
 endif()
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -Wall")
+add_subdirectory(examples)

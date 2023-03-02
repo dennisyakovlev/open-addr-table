@@ -197,7 +197,7 @@ decrement_wrap(Sz& i, Sz mod)
  *                maximum valid index in cont (ie maximum number of elements)
  *                ie the wrap around value for iteration
  * @return std::pair<Sz, bool> Sz   - (A) found index of key
- *                                    (B) first free index at or after key_hash
+ *                                    (B) first free index at or after key_hash // NOTE this is wrong, should be first insertable / free
  *                             bool - (A) true if found
  *                                    (B) false if not found
  */
@@ -625,31 +625,23 @@ public:
 private:
 
     /**
-     * @brief Get the next preferred increasing size of the
-     *        container.
+     * @brief Get the next preferred size of the container. this
+     *        can be larger or smaller. One of bucket choices
+     *        will be picked using load factor and given buckets.
      * 
      * @param wanted_buckets Number of raw buckets wanted. This
      *                       num doesn't consider load factor or
      *                       anything else.
      * @param mlf max load factor
+     * @param larger true if want next larger size, false for
+     *               next smaller
      * @return size_type next preffered size if can. otherwise
      *                   minimum buckets accounted for load factor
      *                   or max_size() + 1 if invalid params
      */
     size_type
-    next_size(size_type wanted_buckets, float mlf)
+    next_size(size_type wanted_buckets, float mlf, bool larger)
     {
-        /*  max_size = 100
-            load_fac = 0.25
-
-            wanted <= 100
-
-            load factor can change
-            need to consider number of elements
-
-
-        */
-
         /* NOTE: careful with the ciel and >= here,
                  think what i have is right
         */
@@ -662,12 +654,26 @@ private:
         }
 
         size_type min_buckets = wanted_buckets / mlf;
-        for (size_type potential : M_bucket_choices)
+        if (larger)
         {
-            if (potential >= min_buckets)
+            for (size_type potential : M_bucket_choices)
             {
-                return potential;
-            } 
+                if (potential >= min_buckets)
+                {
+                    return potential;
+                }
+            }
+        }
+        else
+        {
+            for (auto iter = M_bucket_choices.crbegin();
+                 iter != M_bucket_choices.crend(); ++iter)
+            {
+                if (*iter <= min_buckets)
+                {
+                    return *iter;
+                }
+            }
         }
 
         return min_buckets;
@@ -684,9 +690,13 @@ private:
      * @return false failed to reserve space
      */
     bool
-    reserve_choice(size_type buckets, float mlf, bool realloc, bool preserve)
+    reserve_choice(size_type buckets,
+                   float mlf,
+                   bool realloc,
+                   bool preserve,
+                   bool larger)
     {
-        auto new_buckets = next_size(buckets, mlf);
+        auto new_buckets = next_size(buckets, mlf, larger);
         if (new_buckets != max_size() + 1)
         {
             if (realloc)
@@ -698,22 +708,29 @@ private:
                 M_file  = M_alloc.allocate(new_buckets);
             }
 
-            if (preserve)
+            if (larger)
             {
-                for (; M_buckets != new_buckets; ++M_buckets)
+                if (preserve)
                 {
-                    if (!access(M_file).is_free(M_buckets))
+                    for (; M_buckets != new_buckets; ++M_buckets)
                     {
-                        ++M_elem;
+                        if (!access(M_file).is_free(M_buckets))
+                        {
+                            ++M_elem;
+                        }
+                    }
+                }
+                else
+                {
+                    for (; M_buckets != new_buckets; ++M_buckets)
+                    {
+                        access(M_file).set_free(M_buckets, true);
                     }
                 }
             }
             else
             {
-                for (; M_buckets != new_buckets; ++M_buckets)
-                {
-                    access(M_file).set_free(M_buckets, true);
-                }
+                M_buckets = new_buckets;
             }
 
             return true;
@@ -742,7 +759,7 @@ public:
         M_delete(false),
         M_load(1)
     {
-        reserve_choice(0, M_load, false, false);
+        reserve_choice(0, M_load, false, false, true);
     }
 
     unordered_map_file(size_type buckets) :
@@ -751,7 +768,7 @@ public:
         M_delete(false),
         M_load(1)
     {
-        reserve_choice(buckets, M_load, false, false);
+        reserve_choice(buckets, M_load, false, false, true);
     }
 
     unordered_map_file(std::string name) :
@@ -760,7 +777,7 @@ public:
         M_delete(false),
         M_load(1)
     {
-        reserve_choice(0, M_load, false, false);
+        reserve_choice(0, M_load, false, false, true);
     }
 
     unordered_map_file(std::string name, size_type buckets, bool preserve) :
@@ -769,7 +786,7 @@ public:
         M_delete(false),
         M_load(1)
     {
-        reserve_choice(buckets, M_load, false, true);
+        reserve_choice(buckets, M_load, false, true, true);
     }
 
     unordered_map_file(size_type buckets, std::string name) :
@@ -778,7 +795,7 @@ public:
         M_delete(false),
         M_load(1)
     {
-        reserve_choice(buckets, M_load, false, false);
+        reserve_choice(buckets, M_load, false, false, true);
     }
 
     unordered_map_file(
@@ -796,7 +813,7 @@ public:
             bucket_choices(choices);
         }
 
-        reserve_choice(buckets, M_load, false, false);
+        reserve_choice(buckets, M_load, false, false, true);
     }
 
     unordered_map_file(unordered_map_file&& rv) :
@@ -897,7 +914,6 @@ public:
     void
     reserve(size_type buckets)
     {
-        // reserve_choice(buckets, M_load, true);
         rehash(buckets);
     }
 
@@ -1148,7 +1164,7 @@ public:
                 const auto start = cont.back().second;
                 cont[cont[from].second - start].first = to;
 
-                std::swap(cont[to], cont[from]);
+                std::swap(cont[to].second, cont[from].second);
             }
         };
 
@@ -1166,7 +1182,12 @@ public:
             }
         };
 
-        const auto new_buckets = next_size(buckets, M_load);
+        const auto new_buckets = next_size(buckets, M_load, buckets > M_buckets);
+
+        if (new_buckets == M_buckets)
+        {
+            return;
+        }
 
         constexpr auto invalid_index = std::numeric_limits<size_type>::max();
         local_cont vec(
@@ -1197,17 +1218,18 @@ public:
             vec[now_taken].second = M_file + index;
         }
 
-        // if (buckets > M_buckets)
-        // {
-            reserve_choice(new_buckets, M_load, true, false);
-        // }
+        const size_type loop_to = M_buckets;
+        if (new_buckets > M_buckets)
+        {
+            reserve_choice(new_buckets, M_load, true, false, true);
+        }
 
         /*  NOTE: document
         */
 
         std::vector<size_type> stack;
         stack.reserve(4);
-        for (size_type index = 0; index != M_buckets; ++index)
+        for (size_type index = 0; index != loop_to; ++index)
         {
             auto going_to = vec[index].first;
             /*  If an index is moved to itself can do nothing.
@@ -1240,13 +1262,10 @@ public:
             }
         }
 
-        // if (buckets < M_buckets)
-        // {
-            /*  NOTE: careful, reserve_choice is for making container
-                      larger
-            */
-            // reserve_choice(buckets, M_load, true);
-        // }
+        if (new_buckets < M_buckets)
+        {
+            reserve_choice(new_buckets, M_load, true, false, false);
+        }
     }
 
     iterator
@@ -1319,7 +1338,7 @@ public:
 
         if (M_elem == M_buckets)
         {
-            reserve_choice(M_buckets + 1, M_load, true, false);
+            reserve_choice(M_buckets + 1, M_load, true, false, true);
         }
 
         access temp(M_file, M_buckets);

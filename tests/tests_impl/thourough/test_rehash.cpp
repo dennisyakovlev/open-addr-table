@@ -35,7 +35,7 @@ protected:
     The format (A,B) is
         B - the hash value of the inserted key
         A - B modded by number of buckets in container
-    
+
 
 
     The first representation is, if working correctly,
@@ -47,7 +47,7 @@ protected:
     after calling rehash for the second time.
 */
 
-TEST_F(TestRehash, A)
+TEST_F(TestRehash, GrowA)
 {
     /*  0 (4,9)
         1 (1,11)
@@ -66,7 +66,7 @@ TEST_F(TestRehash, A)
         8
         9 (9,9)
     */
-    
+
     cont.bucket_choices({5,10});
     cont.reserve(5);
 
@@ -81,7 +81,7 @@ TEST_F(TestRehash, A)
     erase_and_check(3);
 }
 
-TEST_F(TestRehash, B)
+TEST_F(TestRehash, GrowB)
 {
     /*  0 (0,80)
         1
@@ -122,7 +122,7 @@ TEST_F(TestRehash, B)
 
 }
 
-TEST_F(TestRehash, C)
+TEST_F(TestRehash, GrowC)
 {
     /*  0 (4,14)
         1 (1,11)
@@ -130,7 +130,7 @@ TEST_F(TestRehash, C)
         3 (2,22)
         4 (3,13)
 
-        0 
+        0
         1 (1,11)
         2 (2,2)
         3 (2,22)
@@ -156,7 +156,7 @@ TEST_F(TestRehash, C)
     erase_and_check(4);
 }
 
-TEST_F(TestRehash, D)
+TEST_F(TestRehash, GrowD)
 {
     /*  0 (0,0)
         1 (1,11)
@@ -187,7 +187,7 @@ TEST_F(TestRehash, D)
     erase_and_check(3);
 }
 
-TEST_F(TestRehash, E)
+TEST_F(TestRehash, GrowE)
 {
     /*  0 (0,80)
         1
@@ -227,7 +227,7 @@ TEST_F(TestRehash, E)
     erase_and_check(2);
 }
 
-TEST_F(TestRehash, F)
+TEST_F(TestRehash, GrowF)
 {
     /*  0
         1 (1,37)
@@ -266,7 +266,7 @@ TEST_F(TestRehash, F)
     erase_and_check(4);
 }
 
-TEST_F(TestRehash, G)
+TEST_F(TestRehash, GrowG)
 {
     /*  0 (5,189)
         1 (5,285)
@@ -296,6 +296,8 @@ TEST_F(TestRehash, G)
 
     insert({189,285,69,153,165,117,45,9});
 
+    cont.rehash(12);
+
     erase_and_check(0);
     erase_and_check(1);
     erase_and_check(2);
@@ -304,8 +306,271 @@ TEST_F(TestRehash, G)
     erase_and_check(5);
     erase_and_check(6);
     erase_and_check(7);
+}
+
+/*  The following tests are their corresponding letter
+    just shrinking instead of growing the container.
+
+    So ShrinkA corresponds to GrowA but in reverse.
+*/
+
+TEST_F(TestRehash, ShrinkA)
+{
+    /*  0
+        1 (1,11)
+        2 (2,2)
+        3 (2,22)
+        4 (3,13)
+        5
+        6
+        7
+        8
+        9 (9,9)
+
+        0 (4,9)
+        1 (1,11)
+        2 (2,2)
+        3 (2,22)
+        4 (3,13)
+    */
+
+    cont.bucket_choices({5,10});
+    cont.rehash(10);
+
+    insert({2,13,22,9,11});
+
+    cont.reserve(5);
+
+    erase_and_check(4);
+    erase_and_check(0);
+    erase_and_check(1);
+    erase_and_check(2);
+    erase_and_check(3);
+}
+
+TEST_F(TestRehash, ShrinkB)
+{
+    /*  0
+        1
+        2
+        3
+        4
+        5 (5,80)
+        6 (6,21)
+        7 (7,37)
+        8
+        9
+        10
+        11
+        12
+        13
+        14
+
+        0 (0,80)
+        1
+        2
+        3
+        4
+        5 (5,37)
+        6 (5,21)
+        7
+    */
+
+    cont.bucket_choices({8,15});
+    cont.rehash(15);
+
+    insert({80,37,21});
+
+    cont.reserve(8);
+
+    erase_and_check(0);
+    erase_and_check(1);
+    erase_and_check(2);
 
 }
 
-/*  NOTE: need downsizing tests
-*/
+TEST_F(TestRehash, ShrinkC)
+{
+    /*  0
+        1 (1,11)
+        2 (2,2)
+        3 (2,22)
+        4 (3,13)
+        5 (4,14)
+        6
+        7
+        8
+        9
+
+        0 (4,14)
+        1 (1,11)
+        2 (2,2)
+        3 (2,22)
+        4 (3,13)
+    */
+
+    cont.bucket_choices({5,10});
+    cont.rehash(10);
+
+    insert({14,13,22,2,11});
+
+    cont.reserve(5);
+
+    erase_and_check(3);
+    erase_and_check(2);
+    erase_and_check(0);
+    erase_and_check(1);
+    erase_and_check(4);
+}
+
+TEST_F(TestRehash, ShrinkD)
+{
+    /*  0 (0,0)
+        1 (1,9)
+        2
+        3 (3,11)
+        4 (4,12)
+        5
+        6
+        7
+
+        0 (0,0)
+        1 (1,11)
+        2 (2,12)
+        3
+        4 (4,9)
+    */
+
+    cont.bucket_choices({5,8});
+    cont.reserve(8);
+
+    insert({0,11,12,9});
+
+    cont.reserve(5);
+
+    erase_and_check(0);
+    erase_and_check(1);
+    erase_and_check(2);
+    erase_and_check(3);
+}
+
+TEST_F(TestRehash, ShrinkE)
+{
+    /*  0
+        1
+        2
+        3
+        4
+        5 (5,80)
+        6 (6,231)
+        7 (7,37)
+        8
+        9
+        10
+        11
+        12
+        13
+        14
+
+        0 (0,80)
+        1
+        2
+        3
+        4
+        5 (5,37)
+        6
+        7 (7,231)
+    */
+
+    cont.bucket_choices({8,15});
+    cont.rehash(15);
+
+    insert({80,231,21});
+
+    cont.reserve(8);
+
+    erase_and_check(0);
+    erase_and_check(1);
+    erase_and_check(2);
+}
+
+TEST_F(TestRehash, ShrinkF)
+{
+    /*  0
+        1
+        2
+        3
+        4
+        5
+        7  (7,37)
+        8  (7,82)
+        9  (7,667)
+        10 (7,142)
+        11 (8,278)
+        12
+        13
+        14
+
+        0
+        1 (1,37)
+        2 (1,667)
+        3 (2,278)
+        4 (4,82)
+        5 (4,142)
+    */
+
+    cont.bucket_choices({6,15});
+    cont.rehash(15);
+
+    insert({278,667,82,142,37});
+
+    cont.reserve(6);
+
+    erase_and_check(0);
+    erase_and_check(1);
+    erase_and_check(2);
+    erase_and_check(3);
+    erase_and_check(4);
+}
+
+TEST_F(TestRehash, ShrinkG)
+{
+    /*  0 (9,153)
+        1 (9,165)
+        2 (9,117)
+        3 (9,45)
+        4 (9,9)
+        5
+        6
+        7
+        8
+        9  (9,189)
+        10 (9,285)
+        11 (9,69)
+
+        0 (5,189)
+        1 (5,285)
+        2 (5,69)
+        3 (1,153)
+        4 (1,9)
+        5 (5,45)
+        6 (5,117)
+        7 (5,165)
+    */
+
+    cont.bucket_choices({8,12});
+    cont.rehash(12);
+
+    insert({189,285,69,153,165,117,45,9});
+
+    cont.reserve(8);
+
+    erase_and_check(0);
+    erase_and_check(1);
+    erase_and_check(2);
+    erase_and_check(3);
+    erase_and_check(4);
+    erase_and_check(5);
+    erase_and_check(6);
+    erase_and_check(7);
+}

@@ -1,6 +1,6 @@
 # Open Address Table
 
-steps to build and test. run `./configure --help` for more info
+steps to build and test. run `./configure --help` for more info, since `make` wont do anything as all targets are disabled by default
 
 ```
 ./configure build

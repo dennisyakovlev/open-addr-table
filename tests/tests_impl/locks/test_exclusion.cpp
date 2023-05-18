@@ -25,7 +25,7 @@ class CorrectnessTest :
 protected:
 
     CorrectnessTest() :
-        thread_manager<Lock>(TESTS_NUM_THREADS, TESTS_NUM_ITERATS)
+        thread_manager<Lock>(test_cpu_cores, test_iterations)
     {
     }
 
@@ -44,7 +44,7 @@ TYPED_TEST(CorrectnessTest, Exclusion)
     this->start();
     this->wait();
 
-    ASSERT_EQ(this->arg().total, TESTS_NUM_THREADS * TESTS_NUM_ITERATS);
+    ASSERT_EQ(this->arg().total, test_cpu_cores * test_iterations);
 }
 
 #endif

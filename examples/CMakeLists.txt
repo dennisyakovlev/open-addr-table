@@ -8,5 +8,5 @@ target_include_directories(two_sum PRIVATE ${include})
 
 add_executable(array_like
     array_like/main.cpp)
-# target_include_directories(array_like PRIVATE ${include})
+target_include_directories(array_like PRIVATE ${include} ${CMAKE_CURRENT_SOURCE_DIR}/../tests)
 target_link_libraries(array_like tests_support)

@@ -7,11 +7,12 @@
 
 #include <files/Allocators.h>
 #include <files/Files.h>
+#include <tests_support/config.h>
 
-constexpr const char* unit_test_dir = "UNIT_TEST_TEMP_FILES";
-constexpr const char* unit_test_file = "unit_test_file";
-
-constexpr std::size_t TESTS_NUM_ITERATS = 100000;
+constexpr const char* unit_test_dir   = "UNIT_TEST_TEMP_FILES";
+constexpr const char* unit_test_file  = "unit_test_file";
+constexpr std::size_t test_iterations = 100000;
+constexpr std::size_t test_cpu_cores  = TESTS_NUM_THREADS;
 
 /**
  * @brief Used to determine whether to use "fast" or "slow" file

@@ -26,7 +26,9 @@
  */
 template<
     typename Cont,
-    typename std::enable_if<std::is_same<typename Cont::key_type, SpecialHash>::value, bool>::type = 0>
+    typename std::enable_if<std::is_same<
+                                typename Cont::key_type,
+                                SpecialHash>::value, bool>::type = 0>
 class StrictOperation
 {
 protected:

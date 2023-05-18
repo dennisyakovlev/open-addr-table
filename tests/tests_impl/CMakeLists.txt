@@ -14,4 +14,11 @@ set(sources
 
 add_executable(${tests} ${sources} main.cpp)
 
-target_link_libraries(${tests} Threads::Threads gtest tests_support)
+target_link_libraries(${tests}
+    Threads::Threads
+    gtest
+    tests_support)
+target_include_directories(${tests}
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..
+    PRIVATE ${include})
+

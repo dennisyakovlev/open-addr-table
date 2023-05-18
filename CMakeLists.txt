@@ -7,53 +7,41 @@ enable_testing()
 find_package(Threads REQUIRED)
 
 set(CMAKE_CXX_STANDARD 11)
+# Is it required? no. You can safely remove this.
+# I have here to stop me using newer stuff which gcc
+# allows by default.
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(include ${CMAKE_CURRENT_SOURCE_DIR}/include CACHE FILEPATH "include dir")
+set(include_tests ${CMAKE_CURRENT_SOURCE_DIR}/tests CACHE FILEPATH "include tests dir")
 
-if (NOT DEFINED CPU_CORES)
-    execute_process(
-        COMMAND "sh" "-c" "cat /proc/cpuinfo | grep -i cores | head -n 1 | egrep -o [0-9]+ | tr -d '\n'"
-        
-        # could try this command
-        # cmake cannot handle escaped characters, so use CPU.{1}s.{1} instead of CPU\(s\) 
-        # COMMAND "sh" "-c" "echo $(($(lscpu | egrep '^CPU.{1}s.{1}: *[0-9]+$' | egrep -o '[0-9]+') / $(lscpu | egrep '.*Thread.*' | egrep -o '[0-9]+'))) | tr -d '\n'"
-        
-        OUTPUT_VARIABLE CPU_CORES
-    )
-    if (${CPU_CORES} MATCHES "^[0-9]+$")
-        message(STATUS "Found ${CPU_CORES} physical CPU cores")
-    else()
-        message(FATAL_ERROR "Could not get number of cpu cores, got \"${CPU_CORES}\"")
-    endif()
+if (NOT DEFINED CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE STREQUAL "")
+    message(WARNING "build type not given, using defaults")
+else()
+    message(STATUS "given build type of ${CMAKE_BUILD_TYPE}")
 endif()
 
-if(TESTING EQUAL 1)
-    message(STATUS "Testing requested")
-
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -Wall")
-
-    # TESTS_NUM_THREADS and FAST_TESTS must be defined to valid values
-    # by build system
-    #   TESTS_NUM_THREADS - whole positive number
-    #   FAST_TESTS - true for fast tests, false for no (see "Vars.h")
-    add_compile_definitions(TESTS_NUM_THREADS=${CPU_CORES})
-    if (DEFINED FAST_TESTS)
-        add_compile_definitions(FAST_TESTS=${FAST_TESTS})
-    else()
-        add_compile_definitions(FAST_TESTS=true)
-        message(STATUS "Fast tests on by default")
-    endif()
+if (TESTING STREQUAL "on" OR EXAMPLES STREQUAL "on")
+    message(STATUS "Need executable tests for build and support")
 
     set(build_tests BUILD_TESTS CACHE STRING "build test executable")
     set(tests TESTS CACHE STRING "testing exectuable")
-    
+
     add_subdirectory(tests/tests_build)
     add_subdirectory(tests/tests_support)
+endif()
+
+if(TESTING STREQUAL "on")
+    message(STATUS "Testing requested")
+
     add_subdirectory(tests/tests_impl)
 
     add_test(NAME tests COMMAND $<TARGET_FILE:${tests}>)
 endif()
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -Wall")
-add_subdirectory(examples)
+if(EXAMPLES STREQUAL "on")
+    message(STATUS "Examples requested")
+
+    add_subdirectory(examples)
+endif()
+

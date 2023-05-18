@@ -53,16 +53,16 @@ func_nice(void* arg)
         */
         const auto curr_lag = typed_arg->total - old_total;
 
-        /*  At most (TESTS_NUM_THREADS - 1) starve threads will
+        /*  At most (test_cpu_cores - 1) starve threads will
             be scheduled at the same time. There can be atmost
-            TESTS_NUM_THREADS of lag which can be discarded. If
-            the lag is greater than TESTS_NUM_THREADS, more
+            test_cpu_cores of lag which can be discarded. If
+            the lag is greater than test_cpu_cores, more
             than cycle of lock requests has passed, so the lag
             is counted.
         */
-        if (curr_lag > TESTS_NUM_THREADS)
+        if (curr_lag > test_cpu_cores)
         {
-            lag += curr_lag - TESTS_NUM_THREADS;
+            lag += curr_lag - test_cpu_cores;
         }
 
         ++times;
@@ -91,7 +91,7 @@ protected:
 
     QueueFairnessTest() :
         testing::Test(),
-        thread_manager<Lock>(TESTS_NUM_THREADS - 1, TESTS_NUM_ITERATS)
+        thread_manager<Lock>(test_cpu_cores - 1, test_iterations)
     {
         M_tid = this->add_thread(func_nice<Lock>);
     }

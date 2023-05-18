@@ -1,0 +1,114 @@
+#!/bin/sh
+
+maybe_err()
+{
+    if [ $? -ne 0 ]; then
+        >&2 echo "\n\n\t$1\n\n"
+        exit 1
+    fi
+}
+
+bold()
+{
+    echo "\e[1m$@\e[0m"
+}
+
+print_help()
+{
+    echo ""
+    bold "SYNOPSIS"
+    echo ""
+    echo "\tconfigure.sh [OPTIONS]... OUTPATH"
+    echo ""
+    bold "DESCRIPTION"
+    echo ""
+    echo "\tConfigure project using cmake." \
+         "Will output files to out of tree build in OUTPATH."
+    echo ""
+    bold "OPTIONS"
+    echo ""
+    bold "\t--type=Release|Debug|RelWithDebInfo"
+    echo "\t\t One of Release, Debug, or RelWithDebInfo." \
+         "Look up cmake docs for CMAKE_BUILD_TYPE for more."
+    echo ""
+    bold "\t--fast=on|off"
+    echo "\t\t Enable (on) fast testing or disable (off) it." \
+         "See tests/tests_support/Vars.h for more."
+    echo ""
+    bold "\t--tests=on|off"
+    echo "\t\t Enable (on) building of tests or disable (off)."
+    echo ""
+    bold "\t--examples=on|off"
+    echo "\t\t Enable (on) building of examples or disable (off)."
+    echo ""
+    bold "EXAMPLES"
+    echo ""
+    echo "\t./configure --type=Debug --tests=on --fast=off build"
+    echo ""
+    echo "\t./configure /home/user/my_project/artifacts"
+    echo ""
+
+    return 1
+}
+
+config_header_path="./tests/tests_support/config.h"
+configure_args=""
+
+# for arg in "$@"; do
+while test $# -gt 1
+do
+    extracted=${1#*=}
+    case "${1}" in
+        --type=*)
+            echo "adding build type $extracted"
+            configure_args="${configure_args} -DCMAKE_BUILD_TYPE=$extracted"
+            ;;
+        --fast=on|--fast=off)
+            echo "setting fast tests to $extracted"
+            if [ "$extracted" = "on" ]; then
+                set_to="true"
+            else
+                set_to="false"
+            fi
+            sed -i "s/FAST_TESTS \(true\|false\)/FAST_TESTS $set_to/" "$config_header_path"
+            ;;
+        --tests=on|--tests=off)
+            echo "setting tests build to $extracted"
+            configure_args="${configure_args} -DTESTING=$extracted"
+            ;;
+        --examples=on|--examples=off)
+            echo "setting examples build to $extracted"
+            configure_args="${configure_args} -DEXAMPLES=$extracted"
+            ;;
+        *)
+            print_help
+            maybe_err "got invalid arg ${1}"
+            ;;
+    esac
+
+    shift
+done
+
+if [ "$1" = "--help" ] || [ "$1" = "help" ]; then
+    print_help
+    maybe_err "requested help"
+fi
+
+cores=$(cat /proc/cpuinfo | grep -i cores | head -n 1 | egrep -o [0-9]+ | tr -d '\n')
+echo "using $cores cores"
+sed -i "s/TESTS_NUM_THREADS [0-9]+/TESTS_NUM_THREADS $cores/" "$config_header_path"
+
+build_dir="$1"
+echo "using build dir $build_dir"
+
+mkdir -p "$build_dir"
+
+printf "\n\n"
+printf %10s |tr " " "="
+printf " DONE CONFIGURE SCRIPT "
+printf %10s |tr " " "="
+printf "\n\n\n"
+
+cmake -B "$build_dir" $configure_args
+maybe_err "cmake configuration failed"
+

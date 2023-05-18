@@ -46,7 +46,7 @@ thread_deviation(void* arg)
     /*  If just used "typed_arg->total" would get undefined behaviour. So need
         an atomic total counter.
     */
-    while (typed_arg->atomic_total.load() < TESTS_NUM_ITERATS * TESTS_NUM_THREADS)
+    while (typed_arg->atomic_total.load() < test_iterations * test_cpu_cores)
     {
         typed_arg->lock.lock();
         
@@ -69,9 +69,9 @@ class QueueDeviationTest :
 protected:
 
     QueueDeviationTest() :
-        thread_manager<Lock, deviation_arg<Lock>>(0, TESTS_NUM_ITERATS)
+        thread_manager<Lock, deviation_arg<Lock>>(0, test_iterations)
     {
-        for (int i = 0; i != TESTS_NUM_THREADS; ++i)
+        for (int i = 0; i != test_cpu_cores; ++i)
         {
             M_tids.push_back(this->add_thread(thread_deviation<Lock>));
         }
@@ -80,7 +80,7 @@ protected:
     std::size_t
     off_by(pthread_t tid)
     {
-        return std::labs(this->template return_val<std::size_t>(tid) - TESTS_NUM_ITERATS);
+        return std::labs(this->template return_val<std::size_t>(tid) - test_iterations);
     }
 
     std::vector<pthread_t>
@@ -113,5 +113,5 @@ TYPED_TEST(QueueDeviationTest, Deviation)
         difference.
         But as noted in this folders README, don't do that.
     */
-    ASSERT_LE(total, 0.01 * (TESTS_NUM_ITERATS * TESTS_NUM_THREADS));
+    ASSERT_LE(total, 0.01 * (test_iterations * test_cpu_cores));
 }

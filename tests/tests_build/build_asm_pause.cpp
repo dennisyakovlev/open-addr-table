@@ -1,4 +1,4 @@
-#include <files/locks.h>
+#include <files/spin_lock.h>
 
 #include <tests_build/Funcs.h>
 

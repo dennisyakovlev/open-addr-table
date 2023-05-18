@@ -2,7 +2,7 @@
 
 #include <gtest/gtest.h>
 
-#include <files/Files.h>
+#include <files/unordered_map.h>
 #include <tests_support/Vars.h>
 
 using File = typename test_file_type<FAST_TESTS, std::size_t, std::size_t>::file;

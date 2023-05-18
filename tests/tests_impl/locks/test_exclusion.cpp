@@ -13,7 +13,8 @@
 
 #include <tests_support/thread_manager.h>
 #include <tests_support/Vars.h>
-#include <files/locks.h>
+#include <files/queue_lock.h>
+#include <files/spin_lock.h>
 
 using namespace MmapFiles;
 

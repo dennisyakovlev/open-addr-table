@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include <files/locks.h>
+#include <files/spin_lock.h>
 
 using namespace MmapFiles;
 

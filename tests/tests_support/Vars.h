@@ -5,8 +5,9 @@
 #include <functional>
 #include <type_traits>
 
-#include <files/Allocators.h>
-#include <files/Files.h>
+#include <files/mmap_allocator.h>
+#include <files/basic_allocator.h>
+#include <files/unordered_map.h>
 #include <tests_support/config.h>
 
 constexpr const char* unit_test_dir   = "UNIT_TEST_TEMP_FILES";

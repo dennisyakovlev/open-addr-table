@@ -13,10 +13,10 @@
 #include <unistd.h>
 #include <vector>
 
-#include <files/Allocators.h>
-#include <files/Iterators.h>
-#include <files/Defs.h>
-#include "FileBlock.h"
+#include "mmap_allocator.h"
+#include "bidirectional_openaddr.h"
+#include "defs.h"
+#include "file_block.h"
 
 /*  NOTE: use open addressing with linear probing
 

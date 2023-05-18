@@ -7,7 +7,7 @@
 
 #include <tests_support/Vars.h>
 #include <tests_support/thread_manager.h>
-#include <files/locks.h>
+#include <files/queue_lock.h>
 
 #include <mutex>
 
